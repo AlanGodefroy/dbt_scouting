@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: Raw_data
+    database: project-scouting
+    schema: Raw_data
+    tables:
+      - name: Events_Leverkusen
+      - name: Events_euro_2024
+      - name: Matches_Leverkusen
+      - name: Mateches_euro_2024
+      - name: UEFA_EURO_lineup
+      - name: lineup_leverkuseng
