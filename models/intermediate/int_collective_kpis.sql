@@ -72,12 +72,14 @@ add_dob AS (
     LEFT JOIN {{ ref('stg_Raw_data__leverkusen_players_date_birth') }} AS dob
     ON x.player= dob.player_name)
 ,
-agg_goals_player AS (
+agg_player AS (
     SELECT
         match_id,
         player,
         CAST(player_id AS INT64) AS player_id,
-        COUNTIF(shot_outcome= "Goal") AS nb_goals
+        COUNTIF(shot_outcome= "Goal") AS nb_goals,
+        COUNTIF(event_type = '50/50') AS nb_5050_total,
+        COUNTIF(event_type = '50/50' AND REGEXP_CONTAINS(`50_50`, r'Won|Succes To Team')) AS nb_5050_success,
     FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} 
     GROUP BY match_id, player, player_id
 )
@@ -90,8 +92,10 @@ SELECT
     exit_minute,
     minutes_played, 
     age,
-    COALESCE(nb_goals, 0) AS nb_goals
+    COALESCE(nb_goals, 0) AS nb_goals,
+    nb_5050_total,
+    nb_5050_success
 FROM add_dob
-LEFT JOIN agg_goals_player
-ON add_dob.player_id=agg_goals_player.player_id
-AND add_dob.match_id=agg_goals_player.match_id
+LEFT JOIN agg_player
+ON add_dob.player_id=agg_player.player_id
+AND add_dob.match_id=agg_player.match_id
