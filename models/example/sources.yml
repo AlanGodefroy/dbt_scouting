@@ -12,3 +12,4 @@ sources:
       - name: UEFA_EURO_lineup
       - name: lineup_leverkusen
       - name: Poste_Leverkusen
+      - name: caracteristiques_joueurs_all
