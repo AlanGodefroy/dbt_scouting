@@ -41,7 +41,7 @@ renamed as (
         id,
         `index` as event_index,
         interception_outcome,
-        `location`as event_location,
+        `location` as event_location,
         match_id,
         miscontrol_aerial_won,
         off_camera,
