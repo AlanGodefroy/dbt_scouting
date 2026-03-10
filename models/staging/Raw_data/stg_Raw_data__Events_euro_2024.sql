@@ -9,7 +9,7 @@ source as (
 renamed as (
 
     select
-        50_50,
+        `50_50`,
         bad_behaviour_card,
         ball_recovery_offensive,
         ball_recovery_recovery_failure,
@@ -120,3 +120,7 @@ renamed as (
 )
 
 select * from renamed
+
+
+
+
