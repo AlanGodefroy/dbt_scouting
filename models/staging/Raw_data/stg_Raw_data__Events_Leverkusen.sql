@@ -10,7 +10,7 @@ renamed as (
 
     select
         int64_field_0,
-        50_50,
+        `50_50`,
         bad_behaviour_card,
         ball_recovery_recovery_failure,
         block_deflection,
