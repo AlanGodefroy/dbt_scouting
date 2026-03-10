@@ -44,7 +44,8 @@ subs_off AS (
     (event_period - 1) * 45 + TIME_DIFF(timestamp, TIME '00:00:00', MINUTE) AS exit_minute
   FROM {{ ref('stg_Raw_data__Events_Leverkusen') }}
   WHERE event_type = 'Substitution'
-),
+)
+,
 
 entry_exit_times AS (
   SELECT 
@@ -57,12 +58,40 @@ entry_exit_times AS (
   LEFT JOIN subs_off AS s
   ON a.player_id = s.player_id AND a.match_id = s.match_id
 )
+,
+add_dob AS (
+    SELECT
+     match_id,
+     player,
+     player_id,
+     entry_minute,
+     exit_minute,
+     (exit_minute - entry_minute) AS minutes_played,
+     DATE_DIFF(DATE '2024-09-01', date_of_birth, YEAR) AS age
+    FROM entry_exit_times AS x
+    LEFT JOIN {{ ref('stg_Raw_data__leverkusen_players_date_birth') }} AS dob
+    ON x.player= dob.player_name)
+,
+agg_goals_player AS (
+    SELECT
+        match_id,
+        player,
+        CAST(player_id AS INT64) AS player_id,
+        COUNTIF(shot_outcome= "Goal") AS nb_goals
+    FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} 
+    GROUP BY match_id, player, player_id
+)
 
-SELECT
-  match_id,
-  player,
-  player_id,
-  entry_minute,
-  exit_minute,
-  (exit_minute - entry_minute) AS minutes_played
-FROM entry_exit_times
+SELECT 
+    add_dob.match_id,
+    add_dob.player,
+    add_dob.player_id,
+    entry_minute,
+    exit_minute,
+    minutes_played, 
+    age,
+    COALESCE(nb_goals, 0) AS nb_goals
+FROM add_dob
+LEFT JOIN agg_goals_player
+ON add_dob.player_id=agg_goals_player.player_id
+AND add_dob.match_id=agg_goals_player.match_id
