@@ -12,7 +12,8 @@ WITH sq1 AS (
         COUNTIF(evl.pass_outcome IS NULL AND evl.event_type = "Pass") as nb_pass_outcome_complete,
         COUNT(evl.pass_cross) as pass_cross,
         COUNT(evl.pass_goal_assist) as pass_goal_assist,
-        COUNT(evl.shot_statsbomb_xg) as shot_statsbomb_xg
+        COUNT(evl.shot_statsbomb_xg) as shot_statsbomb_xg,
+        COUNTIF(evl.shot_outcome = "Goal") as shot_outcome_goal,
     FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} AS evl
     LEFT JOIN {{ ref('stg_Raw_data__Poste_Leverkusen') }} AS pl
         ON evl.player = pl.player_name
@@ -42,7 +43,8 @@ SELECT
     ROUND(SAFE_DIVIDE(sq1.nb_clearance_aerial_won, sq1.nb_matches), 2) as clearance_aerial_won_per_matches,
     ROUND(SAFE_DIVIDE(sq1.pass_cross, sq1.nb_matches), 2) as pass_cross_per_matches,
     ROUND(SAFE_DIVIDE(sq1.pass_goal_assist, sq1.nb_matches), 2) as pass_goal_assist_per_matches,
-    ROUND(SAFE_DIVIDE(sq1.shot_statsbomb_xg, sq1.nb_matches), 2) as shot_statsbomb_xg_per_matches
+    ROUND(SAFE_DIVIDE(sq1.shot_statsbomb_xg, sq1.nb_matches), 2) as shot_statsbomb_xg_per_matches,
+    ROUND(SAFE_DIVIDE(sq1.shot_outcome_goal, sq1.nb_matches), 2) as shot_outcome_goal_per_matches
 FROM sq1
 LEFT JOIN minutes_join as coll
     ON sq1.player_id = coll.player_id
@@ -77,7 +79,10 @@ normalized AS (
             NULLIF(MAX(pass_goal_assist_per_matches) OVER() - MIN(pass_goal_assist_per_matches) OVER(), 0)) as assist_norm,
 
         SAFE_DIVIDE(shot_statsbomb_xg_per_matches - MIN(shot_statsbomb_xg_per_matches) OVER(),
-            NULLIF(MAX(shot_statsbomb_xg_per_matches) OVER() - MIN(shot_statsbomb_xg_per_matches) OVER(), 0)) as xg_norm
+            NULLIF(MAX(shot_statsbomb_xg_per_matches) OVER() - MIN(shot_statsbomb_xg_per_matches) OVER(), 0)) as xg_norm,
+
+        SAFE_DIVIDE(shot_outcome_goal_per_matches - MIN(shot_outcome_goal_per_matches) OVER(),
+            NULLIF(MAX(shot_outcome_goal_per_matches) OVER() - MIN(shot_outcome_goal_per_matches) OVER(), 0)) as goal_norm
     FROM final
 ), 
 
@@ -99,9 +104,10 @@ SELECT
     pass_cross_per_matches,
     pass_goal_assist_per_matches,
     shot_statsbomb_xg_per_matches,
+    shot_outcome_goal_per_matches,
     (0.6 * SAFE_DIVIDE(duel_norm + interception_norm + block_norm + clearance_norm + under_pressure_norm + pass_complete_norm, 6)) as score_defense,
     (0.3 * SAFE_DIVIDE(pass_cross_norm + assist_norm, 2)) as score_middle,
-    (0.1 * xg_norm) as score_attaque
+    (0.1 * SAFE_DIVIDE(xg_norm + goal_norm,2)) as score_attaque
 
 FROM normalized
 )
