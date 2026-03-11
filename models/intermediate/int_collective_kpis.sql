@@ -6,6 +6,7 @@ WITH starting_11 AS (
     player_id, 
     0 AS entry_minute
   FROM {{ ref('stg_Raw_data__lineup_leverkusen') }}
+  WHERE REGEXP_CONTAINS(positions, r'Starting XI')
 ),
 
 subs_on AS (
@@ -103,3 +104,4 @@ FROM add_dob
 LEFT JOIN agg_player
 ON add_dob.player_id=agg_player.player_id
 AND add_dob.match_id=agg_player.match_id
+
