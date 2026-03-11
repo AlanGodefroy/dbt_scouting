@@ -57,12 +57,15 @@ kpi as (
         ROUND(COUNTIF(pass_goal_assist = TRUE) 
               / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS pd_par_match,
 
-        -- Dribbles
+       -- Dribbles
         COUNTIF(dribble_outcome = 'Complete')                  AS dribbles_reussis,
+        ROUND(COUNTIF(dribble_outcome = 'Complete')
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS dribbles_par_match,
 
         -- Tirs cadrés
         COUNTIF(shot_outcome IN ('Goal', 'Saved'))             AS tirs_cadres,
-
+        ROUND(COUNTIF(shot_outcome IN ('Goal', 'Saved'))
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS tirs_cadres_par_match,
         -- Volume
         MAX(minutes.total_minutes)                              AS total_minutes
 
