@@ -82,20 +82,67 @@ agg_player AS (
         COUNTIF(event_type = '50/50' AND REGEXP_CONTAINS(`50_50`, r'Won|Succes To Team')) AS nb_5050_success,
     FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} 
     GROUP BY match_id, player, player_id
+),
+
+agg1 AS (
+    SELECT 
+        add_dob.match_id,
+        add_dob.player,
+        add_dob.player_id,
+        entry_minute,
+        exit_minute,
+        minutes_played, 
+        age,
+        COALESCE(nb_goals, 0) AS nb_goals,
+        nb_5050_total,
+        nb_5050_success
+    FROM add_dob
+    LEFT JOIN agg_player
+    ON add_dob.player_id=agg_player.player_id
+    AND add_dob.match_id=agg_player.match_id
+),
+
+cards AS (
+  SELECT
+    match_id,
+    player,
+    player_id,
+    card_type
+  FROM {{ ref('stg_Raw_data__Events_Leverkusen') }}
+  UNPIVOT(card_type FOR reason IN (
+    bad_behaviour_card  AS 'Bad Behaviour',
+    foul_committed_card AS 'Foul Committed'
+  ))
+  WHERE card_type IS NOT NULL
+)
+,
+agg2 AS (
+    SELECT
+        match_id,
+        player,
+        player_id,
+        COUNTIF(card_type= "Yellow Card") AS nb_yellow_cards,
+        COUNTIF(card_type= "Red Card") AS nb_red_cards
+    FROM cards
+    GROUP BY match_id, player_id, player
+    ORDER BY match_id, player_id, player
 )
 
 SELECT 
-    add_dob.match_id,
-    add_dob.player,
-    add_dob.player_id,
+    agg1.match_id,
+    agg1.player,
+    agg1.player_id,
     entry_minute,
     exit_minute,
     minutes_played, 
     age,
-    COALESCE(nb_goals, 0) AS nb_goals,
+    nb_goals,
     nb_5050_total,
-    nb_5050_success
-FROM add_dob
-LEFT JOIN agg_player
-ON add_dob.player_id=agg_player.player_id
-AND add_dob.match_id=agg_player.match_id
+    nb_5050_success,
+    COALESCE(nb_yellow_cards, 0) AS nb_yellow_cards,
+    COALESCE(nb_red_cards, 0)    AS nb_red_cards
+FROM agg1 
+LEFT JOIN agg2
+ON agg1.player_id=agg2.player_id 
+AND agg1.match_id=agg2.match_id
+ORDER BY match_id 
