@@ -6,6 +6,14 @@ poste as (
     select * from {{ ref('stg_Raw_data__Poste_Leverkusen') }}
 ),
 
+minutes as (
+    select
+        player,
+        SUM(minutes_played) AS total_minutes
+    from {{ ref('int_collective_kpis') }}
+    group by player
+),
+
 joined as (
     select
         events.*,
@@ -17,13 +25,14 @@ joined as (
 
 kpi as (
     select
-        player,
-        poste,
+        joined.player,
+        joined.poste,
 
         -- Volume
         COUNT(DISTINCT match_id)                                AS matchs_joues,
-
-    -- Buts
+        ROUND(MAX(minutes.total_minutes)
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS minutes_par_match,
+        -- Buts
         COUNTIF(shot_outcome = 'Goal')                          AS buts,
         ROUND(COUNTIF(shot_outcome = 'Goal') 
               / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS buts_par_match,
@@ -52,12 +61,16 @@ kpi as (
         COUNTIF(dribble_outcome = 'Complete')                  AS dribbles_reussis,
 
         -- Tirs cadrés
-        COUNTIF(shot_outcome IN ('Goal', 'Saved'))             AS tirs_cadres
+        COUNTIF(shot_outcome IN ('Goal', 'Saved'))             AS tirs_cadres,
+
+        -- Volume
+        MAX(minutes.total_minutes)                              AS total_minutes
 
     from joined
+    left join minutes on joined.player = minutes.player
     where team = 'Bayer Leverkusen'
     and poste = 'Attack'
-    group by player, poste
+    group by joined.player, joined.poste
     order by xG_par_match DESC
 )
 
