@@ -67,7 +67,22 @@ kpi as (
         ROUND(COUNTIF(shot_outcome IN ('Goal', 'Saved'))
               / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS tirs_cadres_par_match,
         -- Volume
-        MAX(minutes.total_minutes)                              AS total_minutes
+        MAX(minutes.total_minutes)                              AS total_minutes,
+
+        -- Milieu
+        COUNTIF(pass_outcome IS NULL)                          AS passes_reussies,
+        ROUND(COUNTIF(pass_outcome IS NULL)
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS passes_par_match,
+        COUNTIF(pass_through_ball = TRUE) AS pass_through_ball,
+        ROUND(COUNTIF(pass_through_ball = TRUE) / COUNT(DISTINCT match_id), 2) AS pass_through_ball_per_match,
+
+        -- Défense
+        COUNTIF(interception_outcome IS NOT NULL)              AS interceptions,
+        ROUND(COUNTIF(interception_outcome IS NOT NULL)
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS interceptions_par_match,
+        COUNTIF(duel_outcome = 'Won')                          AS duels_gagnes,
+        ROUND(COUNTIF(duel_outcome = 'Won')
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS duels_par_match
 
     from joined
     left join minutes on joined.player = minutes.player
