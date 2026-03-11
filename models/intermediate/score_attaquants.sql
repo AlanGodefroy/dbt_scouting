@@ -52,6 +52,6 @@ scored as (
 select 
     *,
     -- Note Finale : Addition simple des 3 sous-scores
-    ROUND(score_attack + score_middle + score_defense, 0) AS score_final
+    ROUND(score_attack + score_middle + score_defense, 0) AS note_fifa
 from scored
 order by note_fifa DESC
