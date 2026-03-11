@@ -6,6 +6,7 @@ WITH starting_11 AS (
     player_id, 
     0 AS entry_minute
   FROM {{ ref('stg_Raw_data__lineup_leverkusen') }}
+  WHERE REGEXP_CONTAINS(positions, r'Starting XI')
 ),
 
 subs_on AS (
@@ -79,7 +80,9 @@ agg_player AS (
         CAST(player_id AS INT64) AS player_id,
         COUNTIF(shot_outcome= "Goal") AS nb_goals,
         COUNTIF(event_type = '50/50') AS nb_5050_total,
+        COUNTIF(event_type = 'Foul Won') AS nb_fouls_suffered,
         COUNTIF(event_type = '50/50' AND REGEXP_CONTAINS(`50_50`, r'Won|Succes To Team')) AS nb_5050_success,
+        COUNTIF(event_type = 'Substitution' AND substitution_outcome = 'Injury') AS nb_injury
     FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} 
     GROUP BY match_id, player, player_id
 )
@@ -93,9 +96,12 @@ SELECT
     minutes_played, 
     age,
     COALESCE(nb_goals, 0) AS nb_goals,
-    nb_5050_total,
-    nb_5050_success
+    COALESCE(nb_5050_total, 0) AS nb_5050_total,
+    COALESCE(nb_5050_success, 0) AS nb_5050_success,
+    COALESCE(nb_fouls_suffered, 0) AS nb_fouls_suffered,
+    COALESCE(nb_injury, 0) AS nb_injury
 FROM add_dob
 LEFT JOIN agg_player
 ON add_dob.player_id=agg_player.player_id
 AND add_dob.match_id=agg_player.match_id
+
