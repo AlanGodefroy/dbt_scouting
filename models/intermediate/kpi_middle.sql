@@ -1,4 +1,13 @@
-SELECT
+WITH time_played AS (
+    SELECT 
+        player,
+        SUM(minutes_played) AS total_minutes
+    FROM  {{ ref('int_collective_kpis') }}
+    GROUP BY player
+),
+
+stats_middle AS (
+    SELECT
     player_id,
     player,
     poste,
@@ -42,4 +51,18 @@ SELECT
 FROM {{ ref("Event_Leverkusen_all") }}
 WHERE poste = "Middle"
 GROUP BY player_id, player, poste
+)
+
+SELECT 
+s.*,
+t.total_minutes,
+ROUND(t.total_minutes / nb_match,2) AS total_minutes_per_match
+FROM stats_middle AS s
+LEFT JOIN time_played AS t
+ON s.player = t.player
+
+
+
+
+
 
