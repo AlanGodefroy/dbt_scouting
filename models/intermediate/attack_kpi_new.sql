@@ -13,7 +13,7 @@ joined as (
     from events
     left join poste
         on events.player = poste.player_name
-),  -- ✅ virgule manquante ici
+),
 
 kpi as (
     select
@@ -23,15 +23,15 @@ kpi as (
         -- Volume
         COUNT(DISTINCT match_id)                                AS matchs_joues,
 
-        -- Buts
+    -- Buts
         COUNTIF(shot_outcome = 'Goal')                          AS buts,
         ROUND(COUNTIF(shot_outcome = 'Goal') 
-              / NULLIF(COUNT(DISTINCT match_id), 0) * 90, 2)   AS buts_par_90,
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS buts_par_match,
 
         -- xG
         ROUND(SUM(shot_statsbomb_xg), 2)                       AS xG_total,
         ROUND(SUM(shot_statsbomb_xg) 
-              / NULLIF(COUNT(DISTINCT match_id), 0) * 90, 2)   AS xG_par_90,
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS xG_par_match,
 
         -- Qualité de finition
         ROUND(COUNTIF(shot_outcome = 'Goal') 
@@ -46,7 +46,7 @@ kpi as (
         -- Création
         COUNTIF(pass_goal_assist = TRUE)                       AS passes_decisives,
         ROUND(COUNTIF(pass_goal_assist = TRUE) 
-              / NULLIF(COUNT(DISTINCT match_id), 0) * 90, 2)   AS pd_par_90,
+              / NULLIF(COUNT(DISTINCT match_id), 0), 2)        AS pd_par_match,
 
         -- Dribbles
         COUNTIF(dribble_outcome = 'Complete')                  AS dribbles_reussis,
@@ -58,6 +58,7 @@ kpi as (
     where team = 'Bayer Leverkusen'
     and poste = 'Attack'
     group by player, poste
-    order by xG_par_90 DESC)
+    order by xG_par_match DESC
+)
 
-    select * from kpi 
+select * from kpi
