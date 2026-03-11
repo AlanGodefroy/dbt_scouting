@@ -3,11 +3,12 @@ WITH raw_stats AS (
     player,
     player_id,
     age,
+    nb_goals,
     SUM(minutes_played)    AS total_minutes,
     SUM(nb_fouls_suffered) AS total_fouls,
     SUM(nb_injury)         AS total_injuries
   FROM {{ ref('int_collective_kpis') }}
-  GROUP BY player, player_id, age
+  GROUP BY player, player_id, age, nb_goals
 ),
 
 normalized AS (
@@ -15,6 +16,7 @@ normalized AS (
     player,
     player_id,
     age,
+    nb_goals,
     total_minutes,
     total_fouls,
     total_injuries,
@@ -30,6 +32,7 @@ SELECT
   player,
   player_id,
   age,
+  nb_goals,
   total_minutes,
   total_fouls,
   total_injuries,
