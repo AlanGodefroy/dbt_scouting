@@ -1,3 +1,5 @@
+{{ config( materialized = 'table' )}}
+
 WITH starting_11 AS (
     -- Get starting XI from lineups table, entry at minute 0
   SELECT DISTINCT
@@ -17,7 +19,7 @@ subs_on AS (
     substitution_replacement AS player,
     substitution_replacement_id AS player_id,
     team,
-    (event_period - 1) * 45 + TIME_DIFF(timestamp, TIME '00:00:00', MINUTE) AS entry_minute
+    CAST((event_period - 1) * 45 + TIME_DIFF(timestamp, TIME '00:00:00', MINUTE) AS INT64) AS entry_minute
   FROM {{ ref('stg_Raw_data__Events_euro_2024') }}
   WHERE event_type = 'Substitution'
 ),
@@ -45,9 +47,9 @@ subs_off AS (
   SELECT
     match_id,
     player,
-    player_id,
+    CAST(TRUNC(player_id) AS INT64) AS player_id,
     team,
-    (event_period - 1) * 45 + TIME_DIFF(timestamp, TIME '00:00:00', MINUTE) AS exit_minute
+    CAST((event_period - 1) * 45 + TIME_DIFF(timestamp, TIME '00:00:00', MINUTE) AS INT64) AS exit_minute
   FROM {{ ref('stg_Raw_data__Events_euro_2024') }}
   WHERE event_type = 'Substitution'
 )
@@ -110,4 +112,3 @@ FROM add_dob
 LEFT JOIN agg_player
 ON add_dob.player_id=agg_player.player_id
 AND add_dob.match_id=agg_player.match_id
-
