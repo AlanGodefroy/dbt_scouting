@@ -93,7 +93,7 @@ renamed as (
         shot_redirect,
         shot_saved_off_target,
         shot_saved_to_post,
-        shot_statsbomb_xg,
+        CAST(shot_statsbomb_xg AS FLOAT64) AS shot_statsbomb_xg,
         shot_technique,
         shot_type,
         substitution_outcome,
