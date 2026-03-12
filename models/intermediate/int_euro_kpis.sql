@@ -3,7 +3,7 @@ WITH starting_11 AS (
   SELECT DISTINCT
     match_id, 
     player_name AS player, 
-    player_id,
+    CAST(player_id AS INT64) AS player_id,
     team, 
     0 AS entry_minute
   FROM {{ ref('stg_Raw_data__UEFA_EURO_lineup') }}
@@ -15,7 +15,7 @@ subs_on AS (
   SELECT
     match_id,
     substitution_replacement AS player,
-    substitution_replacement_id AS player_id,
+    CAST(substitution_replacement_id AS INT64) AS player_id,
     team,
     (event_period - 1) * 45 + TIME_DIFF(timestamp, TIME '00:00:00', MINUTE) AS entry_minute
   FROM {{ ref('stg_Raw_data__Events_euro_2024') }}
@@ -45,7 +45,7 @@ subs_off AS (
   SELECT
     match_id,
     player,
-    player_id,
+    CAST(player_id AS INT64) AS player_id,
     team,
     (event_period - 1) * 45 + TIME_DIFF(timestamp, TIME '00:00:00', MINUTE) AS exit_minute
   FROM {{ ref('stg_Raw_data__Events_euro_2024') }}
