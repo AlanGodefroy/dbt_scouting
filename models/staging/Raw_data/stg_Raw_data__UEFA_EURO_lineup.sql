@@ -9,7 +9,7 @@ source as (
 renamed as (
 
     select
-        player_id,
+        CAST(TRUNC(player_id) AS INT64) AS player_id,
         player_name,
         player_nickname,
         jersey_number,
