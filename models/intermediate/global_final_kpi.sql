@@ -27,7 +27,8 @@ normalized AS (
     (total_injuries - MIN(total_injuries) OVER()) / NULLIF(MAX(total_injuries) OVER() - MIN(total_injuries) OVER(), 0) AS norm_injuries
   FROM raw_stats
 )
-
+,
+final AS (
 SELECT
   player,
   player_id,
@@ -44,3 +45,17 @@ SELECT
   , 2) AS fatigue_score
 FROM normalized
 ORDER BY player DESC
+)
+
+SELECT 
+  final.player,
+  final.player_id,
+  final.age,
+  final.total_goals,
+  final.total_minutes,
+  final.total_fouls,
+  final.total_injuries,
+  po.poste
+FROM final
+LEFT JOIN {{ ref('stg_Raw_data__Poste_Leverkusen') }} AS po
+on final.player=po.player_name
