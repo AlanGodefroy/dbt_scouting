@@ -58,6 +58,7 @@ SELECT
 FROM sq1
 LEFT JOIN minutes_join as coll
     ON sq1.player_id = coll.player_id
+    AND sq1.match_id = coll.match_id
 ),
 
 score_final as (

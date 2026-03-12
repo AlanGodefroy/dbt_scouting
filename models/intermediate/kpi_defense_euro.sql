@@ -29,7 +29,8 @@ SELECT
     CAST(sq1.match_id AS INT64) AS match_id, 
     SUM(coll.minutes_played) as total_min 
 FROM sq1
-LEFT JOIN {{ ref('int_euro_kpis') }} as coll
+
+INNER JOIN {{ ref('int_euro_kpis') }} as coll
     ON sq1.player = coll.player
     AND sq1.match_id = coll.match_id
 GROUP BY 1,2,3
