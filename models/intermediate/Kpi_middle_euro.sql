@@ -120,7 +120,7 @@ SELECT
     s.poste,
     s.nb_match,
     /*t.total_minutes,*/
-    ROUND(t.total_minutes / s.nb_match, 2) AS total_minutes_per_match,
+    /*ROUND(t.total_minutes / s.nb_match, 2) AS total_minutes_per_match,*/
 
     
     -- Scores
