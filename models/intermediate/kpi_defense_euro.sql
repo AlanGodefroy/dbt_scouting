@@ -21,16 +21,7 @@ WITH sq1 AS (
     GROUP BY 1,2,3,4
 ),
 
-minutes_join AS (
 
-SELECT 
-coll.player_id
-FROM sq1
-
-INNER JOIN {{ ref('int_euro_kpis') }} as coll
-    ON sq1.player_id = coll.player_id
-    AND sq1.match_id = coll.match_id
-),
 
 score_inter as (
 
@@ -39,7 +30,7 @@ SELECT
         sq1.player,
         sq1.poste,
         sq1.match_id,
-        mj.total_min,
+       
         sq1.nb_under_pressure_succes,
         sq1.nb_pass_outcome_complete,
         sq1.nb_duel_outcome,
@@ -54,9 +45,6 @@ SELECT
         ROUND((0.3 * SAFE_DIVIDE(sq1.nb_pass_cross + sq1.nb_pass_goal_assist, 2)),2) AS score_middle,
         ROUND((0.1 * SAFE_DIVIDE(sq1.nb_shot_statsbomb_xg + sq1.nb_shot_outcome_goal, 2)),2) AS score_attaque
 FROM sq1
-LEFT JOIN minutes_join as mj
-    ON sq1.player_id = mj.player_id
-    AND sq1.match_id = mj.match_id
 ),
 
 score_final as (
@@ -66,7 +54,7 @@ SELECT
         sci.player,
         sci.poste,
         sci.match_id,
-        sci.total_min,
+        
         sci.nb_under_pressure_succes,
         sci.nb_pass_outcome_complete,
         sci.nb_duel_outcome,
@@ -108,7 +96,7 @@ SELECT
     n.poste,
     
     COUNT(n.match_id) as nb_matches,
-    SUM(n.total_min) as total_minutes_played,
+    
     SUM(n.nb_under_pressure_succes) as nb_under_pressure_succes,
     SUM(n.nb_pass_outcome_complete) as nb_pass_outcome_complete,
     SUM(n.nb_duel_outcome) as nb_duel_outcome,
