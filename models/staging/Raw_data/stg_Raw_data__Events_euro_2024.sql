@@ -73,7 +73,7 @@ renamed as (
         `period` as event_period,
         play_pattern,
         player,
-        player_id,
+        CAST(player_id as INT64) as player_id,
         position,
         possession,
         possession_team,
