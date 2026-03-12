@@ -89,8 +89,6 @@ SELECT
 FROM score_inter as sci
 ),
 
-
--- normalisation min-max par match sur l'ensemble des joueurs
 normalized AS (
     SELECT
         sf.*,
