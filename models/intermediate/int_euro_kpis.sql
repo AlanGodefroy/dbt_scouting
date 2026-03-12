@@ -70,14 +70,15 @@ add_dob AS (
     SELECT
      match_id,
      player,
-     player_id,
-     team,
+     x.player_id,
+     dob.team,
      entry_minute,
      exit_minute,
      (exit_minute - entry_minute) AS minutes_played,
-     DATE_DIFF(DATE '2024-09-01', date_of_birth, YEAR) AS age
+     DATE_DIFF(DATE '2024-09-01', date_of_birth, YEAR) AS age,
+     market_value
     FROM entry_exit_times AS x
-    LEFT JOIN {{ ref('stg_Raw_data__leverkusen_players_date_birth') }} AS dob
+    LEFT JOIN {{ ref('stg_Raw_data__euro_24_global_data_players') }} AS dob
     ON x.player= dob.player_name)
 ,
 agg_player AS (
@@ -85,14 +86,11 @@ agg_player AS (
         match_id,
         player,
         CAST(player_id AS INT64) AS player_id,
-        team,
         COUNTIF(shot_outcome= "Goal") AS nb_goals,
-        COUNTIF(event_type = '50/50') AS nb_5050_total,
         COUNTIF(event_type = 'Foul Won') AS nb_fouls_suffered,
-        COUNTIF(event_type = '50/50' AND REGEXP_CONTAINS(`50_50`, r'Won|Succes To Team')) AS nb_5050_success,
         COUNTIF(event_type = 'Substitution' AND substitution_outcome = 'Injury') AS nb_injury
-    FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} 
-    GROUP BY 1,2,3,4
+    FROM {{ ref('stg_Raw_data__Events_euro_2024') }}
+    GROUP BY match_id,player,player_id
 )
 
 SELECT 
@@ -104,10 +102,10 @@ SELECT
     minutes_played, 
     age,
     COALESCE(nb_goals, 0) AS nb_goals,
-    COALESCE(nb_5050_total, 0) AS nb_5050_total,
-    COALESCE(nb_5050_success, 0) AS nb_5050_success,
     COALESCE(nb_fouls_suffered, 0) AS nb_fouls_suffered,
-    COALESCE(nb_injury, 0) AS nb_injury
+    COALESCE(nb_injury, 0) AS nb_injury,
+    market_value,
+    add_dob.team,
 FROM add_dob
 LEFT JOIN agg_player
 ON add_dob.player_id=agg_player.player_id
