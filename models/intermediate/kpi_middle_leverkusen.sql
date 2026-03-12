@@ -1,8 +1,19 @@
+WITH time_played AS (
+    SELECT
+        player,
+        SUM(minutes_played) AS total_minutes
+    FROM {{ ref('int_collective_kpis') }}
+    GROUP BY player
+)
+
+
 SELECT
-    player_id,
-    player,
-    poste,
+    sc.player_id,
+    sc.player,
+    sc.poste,
     COUNT(DISTINCT match_id) AS nb_match,
+    t.total_minutes,
+    ROUND(t.total_minutes / COUNT(DISTINCT sc.match_id), 2) AS total_minutes_per_match,
 
     -- Scores finaux (moyenne des notes par match)
     ROUND(AVG(score_attaque_match), 4) AS score_attaque,
@@ -29,6 +40,8 @@ SELECT
     ROUND(AVG(contre_pressing), 2) AS contre_pressing_per_match,
     ROUND(AVG(clearance_aerial_won), 2) AS clearance_aerial_won_per_match
 
-FROM {{ ref('int_middle_scores_per_match') }} 
-GROUP BY player_id, player, poste
+FROM {{ ref('int_middle_scores_per_match') }} AS sc
+LEFT JOIN time_played AS t 
+ON sc.player = t.player
+GROUP BY sc.player_id, sc.player, sc.poste, t.total_minutes
 ORDER BY score_final DESC
