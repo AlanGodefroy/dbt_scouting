@@ -26,7 +26,7 @@ all_entries AS (
   SELECT 
   match_id,
   player,
-  player_id,
+  CAST(player_id as int64) as player_id,
   team,
   starting_11.entry_minute
 FROM starting_11
@@ -34,7 +34,7 @@ UNION ALL
 SELECT 
   match_id,
   player,
-  player_id,
+  CAST(player_id as int64) as player_id,
   team,
   subs_on.entry_minute
 FROM subs_on
