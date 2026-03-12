@@ -15,5 +15,4 @@ sources:
       - name: caracteristiques_joueurs_all
       - name: Poste_euro_2024
       - name: leverkusen_players_date_birth
-      
-      
+      - name: euro_24_global_data_players
