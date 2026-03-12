@@ -24,16 +24,12 @@ WITH sq1 AS (
 minutes_join AS (
 
 SELECT 
-    CAST(sq1.player_id AS INT64) AS player_id,
-    sq1.player,
-    CAST(sq1.match_id AS INT64) AS match_id, 
-    SUM(coll.minutes_played) as total_min 
+coll.player_id
 FROM sq1
 
 INNER JOIN {{ ref('int_euro_kpis') }} as coll
-    ON sq1.player = coll.player
+    ON sq1.player_id = coll.player_id
     AND sq1.match_id = coll.match_id
-GROUP BY 1,2,3
 ),
 
 score_inter as (
@@ -59,7 +55,7 @@ SELECT
         ROUND((0.1 * SAFE_DIVIDE(sq1.nb_shot_statsbomb_xg + sq1.nb_shot_outcome_goal, 2)),2) AS score_attaque
 FROM sq1
 LEFT JOIN minutes_join as mj
-    ON sq1.player = mj.player
+    ON sq1.player_id = mj.player_id
     AND sq1.match_id = mj.match_id
 ),
 
