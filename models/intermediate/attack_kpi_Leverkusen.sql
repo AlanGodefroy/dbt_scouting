@@ -1,5 +1,5 @@
 with kpi as (
-    select * from {{ ref('attack_kpi_new') }}
+    select * from {{ ref('Data_Leverkusen_Attack') }}
 ),
 
 normalized as (
