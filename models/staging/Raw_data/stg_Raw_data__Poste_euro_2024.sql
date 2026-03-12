@@ -9,7 +9,7 @@ source as (
 renamed as (
 
     select
-        player_id,
+        cast(player_id as int64) as player_id,
         player_name,
         attack,
         middle,
