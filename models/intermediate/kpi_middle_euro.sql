@@ -1,6 +1,6 @@
 
 SELECT
-    player_id
+    player_id,
     player,
     poste,
     COUNT(DISTINCT match_id) AS nb_match,
