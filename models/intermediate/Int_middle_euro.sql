@@ -1,10 +1,4 @@
-/*WITH time_played AS (
-    SELECT 
-        player,
-        SUM(minutes_played) AS total_minutes
-    FROM  {{ ref('int_collective_kpis') }}
-    GROUP BY player
-), */
+
 
 WITH stats_middle AS (
     SELECT
@@ -57,7 +51,7 @@ normalized AS (
         player,
         poste,
 
-                -- Attaque
+        -- Attaque
         COALESCE(SAFE_DIVIDE(goals - MIN(goals) OVER(PARTITION BY match_id),
             MAX(goals) OVER(PARTITION BY match_id) - MIN(goals) OVER(PARTITION BY match_id)), 0) AS n_goals,
         COALESCE(SAFE_DIVIDE(xg_total - MIN(xg_total) OVER(PARTITION BY match_id),

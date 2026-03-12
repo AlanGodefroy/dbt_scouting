@@ -1,5 +1,6 @@
+
 SELECT
-    player_id,
+    player_id
     player,
     poste,
     COUNT(DISTINCT match_id) AS nb_match,
@@ -30,5 +31,5 @@ SELECT
     ROUND(AVG(clearance_aerial_won), 2) AS clearance_aerial_won_per_match
 
 FROM {{ ref('Int_middle_euro') }}
-GROUP BY player_id, player, poste
+GROUP BY player, player_id, poste
 ORDER BY score_final DESC
