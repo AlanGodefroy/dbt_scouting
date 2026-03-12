@@ -55,6 +55,7 @@ SELECT
   final.total_minutes,
   final.total_fouls,
   final.total_injuries,
+  final.fatigue_score,
   po.poste
 FROM final
 LEFT JOIN {{ ref('stg_Raw_data__Poste_Leverkusen') }} AS po
