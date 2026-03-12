@@ -1,6 +1,6 @@
 WITH sq1 AS (
     SELECT
-        CAST(evl.player_id AS INT64) AS player_id,
+        evl.player_id,
         evl.player,
         pl.poste,
         evl.match_id,
@@ -24,14 +24,15 @@ WITH sq1 AS (
 minutes_join AS (
 
 SELECT 
-    sq1.player_id,
-    sq1.match_id, 
+    CAST(sq1.player_id AS INT64) AS player_id,
+    sq1.player,
+    CAST(sq1.match_id AS INT64) AS match_id, 
     SUM(coll.minutes_played) as total_min 
 FROM sq1
-LEFT JOIN {{ ref('int_euro_kpis') }} coll
-    ON sq1.player_id = coll.player_id
+LEFT JOIN {{ ref('int_euro_kpis') }} as coll
+    ON sq1.player = coll.player
     AND sq1.match_id = coll.match_id
-GROUP BY 1,2
+GROUP BY 1,2,3
 ),
 
 score_inter as (
@@ -41,7 +42,7 @@ SELECT
         sq1.player,
         sq1.poste,
         sq1.match_id,
-        coll.total_min,
+        mj.total_min,
         sq1.nb_under_pressure_succes,
         sq1.nb_pass_outcome_complete,
         sq1.nb_duel_outcome,
@@ -56,9 +57,9 @@ SELECT
         ROUND((0.3 * SAFE_DIVIDE(sq1.nb_pass_cross + sq1.nb_pass_goal_assist, 2)),2) AS score_middle,
         ROUND((0.1 * SAFE_DIVIDE(sq1.nb_shot_statsbomb_xg + sq1.nb_shot_outcome_goal, 2)),2) AS score_attaque
 FROM sq1
-LEFT JOIN minutes_join as coll
-    ON sq1.player_id = coll.player_id
-    AND sq1.match_id = coll.match_id
+LEFT JOIN minutes_join as mj
+    ON sq1.player = mj.player
+    AND sq1.match_id = mj.match_id
 ),
 
 score_final as (
