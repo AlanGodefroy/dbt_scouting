@@ -24,26 +24,20 @@ normalized as (
 scored as (
     select
         *,
-        -- Score Attack (Somme des 6 KPIs à 10% chacun = 60% du total)
+        -- Score Attack SUR 100 (Moyenne pure des 6 KPIs)
         ROUND(
-            (COALESCE(note_buts, 0) * 0.10) +
-            (COALESCE(note_xG, 0) * 0.10) +
-            (COALESCE(note_conversion, 0) * 0.10) +
-            (COALESCE(note_pd, 0) * 0.10) +
-            (COALESCE(note_dribbles, 0) * 0.10) +
-            (COALESCE(note_tirs_cadres, 0) * 0.10)
+            (COALESCE(note_buts, 0) + COALESCE(note_xG, 0) + COALESCE(note_conversion, 0) + 
+             COALESCE(note_pd, 0) + COALESCE(note_dribbles, 0) + COALESCE(note_tirs_cadres, 0)) / 6
         , 1) AS score_attack,
 
-        -- Score Middle (Somme des 2 KPIs à 10% chacun = 20% du total)
+        -- Score Middle SUR 100 (Moyenne pure des 2 KPIs)
         ROUND(
-            (COALESCE(note_passes, 0) * 0.10) +
-            (COALESCE(note_through_ball, 0) * 0.10)
+            (COALESCE(note_passes, 0) + COALESCE(note_through_ball, 0)) / 2
         , 1) AS score_middle,
 
-        -- Score Defense (Somme des 2 KPIs à 10% chacun = 20% du total)
+        -- Score Defense SUR 100 (Moyenne pure des 2 KPIs)
         ROUND(
-            (COALESCE(note_interceptions, 0) * 0.10) +
-            (COALESCE(note_duels, 0) * 0.10)
+            (COALESCE(note_interceptions, 0) + COALESCE(note_duels, 0)) / 2
         , 1) AS score_defense
 
     from normalized
@@ -51,7 +45,7 @@ scored as (
 
 select 
     *,
-    -- Note Finale : Addition simple des 3 sous-scores
-    ROUND(score_attack + score_middle + score_defense, 0) AS note_fifa
+    -- Note Finale : Application des coefficients (60% / 20% / 20%) sur les scores en base 100
+    ROUND((score_attack * 0.60) + (score_middle * 0.20) + (score_defense * 0.20), 0) AS note_fifa
 from scored
 order by note_fifa DESC
