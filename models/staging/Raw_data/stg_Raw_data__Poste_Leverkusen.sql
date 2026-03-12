@@ -1,23 +1,26 @@
-with 
+WITH poste_adjust as (
 
-source as (
-
-    select * from {{ source('Raw_data', 'Poste_Leverkusen') }}
-
-),
-
-renamed as (
-
-    select
+SELECT  
         player_name,
         attack,
         middle,
         defense,
         goal,
-        poste
-
-    from source
-
+        poste as ancien_poste,
+        CASE 
+            WHEN player_name = 'Nathan Tella' THEN 'Attack'
+        ELSE poste 
+        END AS poste
+        
+FROM {{ source('Raw_data', 'Poste_Leverkusen') }}
 )
 
-select * from renamed
+SELECT 
+        player_name,
+        attack,
+        middle,
+        defense,
+        goal,
+        poste 
+        
+FROM poste_adjust
