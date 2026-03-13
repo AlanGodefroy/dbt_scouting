@@ -1,137 +1,157 @@
-WITH raw_events AS (
-    SELECT 
-        o.*,
-        p.poste
-    FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} AS o
-    LEFT JOIN {{ ref('stg_Raw_data__Poste_Leverkusen') }} AS p
-    ON o.player = p.player_name
+WITH sq1 AS (
+    SELECT
+        evl.player_id,
+        evl.player,
+        pl.poste,
+        evl.match_id,
+
+        COUNTIF(evl.shot_outcome = 'Goal')                                          AS nb_goals,
+        SUM(evl.shot_statsbomb_xg)                                                  AS nb_xg,
+        COUNTIF(evl.shot_outcome IN ('Goal', 'Saved', 'Saved to Post'))             AS nb_tirs_cadres,
+        SAFE_DIVIDE(
+            COUNTIF(evl.shot_outcome = 'Goal'),
+            COUNTIF(evl.shot_outcome IN ('Goal', 'Saved', 'Saved to Post', 'Off T'))
+        )                                                                            AS taux_conversion,
+        COUNT(evl.pass_goal_assist)                                                 AS nb_pass_goal_assist,
+        COUNTIF(evl.dribble_outcome = 'Complete')                                   AS nb_dribbles,
+        COUNTIF(evl.pass_outcome IS NULL AND evl.event_type = 'Pass')               AS nb_pass_complete,
+        COUNT(evl.pass_through_ball)                                                AS nb_pass_through_ball,
+        COUNTIF(evl.interception_outcome IN ('Success','Success in play','Won'))    AS nb_interceptions,
+        COUNTIF(evl.duel_outcome IN ('Success','Success in play','Won'))            AS nb_duel_win
+
+    FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} AS evl
+    LEFT JOIN {{ ref('stg_Raw_data__Poste_Leverkusen') }} AS pl
+        ON evl.player = pl.player_name
+    WHERE evl.player_id IS NOT NULL AND pl.poste LIKE 'Attack'
+    GROUP BY 1, 2, 3, 4
 ),
 
-stats_attack AS (
+minutes_join AS (
     SELECT
-        player AS player_id,
-        player,
-        poste,
-        COUNT(DISTINCT match_id) AS nb_match,
-
-        -- Attaque (Spécifique aux attaquants)
-        COUNTIF(shot_outcome = "Goal") AS goals,
-        ROUND(COUNTIF(shot_outcome = "Goal") / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS goals_per_match,
-        ROUND(SUM(shot_statsbomb_xg), 2) AS xg_total,
-        ROUND(SUM(shot_statsbomb_xg) / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS xg_per_match,
-        COUNTIF(shot_outcome IN ('Goal', 'Saved')) AS tirs_cadres,
-        ROUND(COUNTIF(shot_outcome IN ('Goal', 'Saved')) / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS tirs_cadres_per_match,
-        ROUND(COUNTIF(shot_outcome = 'Goal') / NULLIF(COUNTIF(shot_outcome IS NOT NULL), 0), 2) AS taux_conversion,
-
-        -- Milieu / Création (Adapté aux attaquants)
-        COUNTIF(pass_goal_assist = TRUE) AS pass_goal_assist,
-        ROUND(COUNTIF(pass_goal_assist = TRUE) / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS pass_goal_assist_per_match,
-        COUNTIF(dribble_outcome = 'Complete') AS dribbles_reussis,
-        ROUND(COUNTIF(dribble_outcome = 'Complete') / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS dribbles_per_match,
-        COUNTIF(event_type = "Pass" AND pass_outcome IS NULL) AS pass_complete,
-        ROUND(COUNTIF(event_type = "Pass" AND pass_outcome IS NULL) / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS pass_complete_per_match,
-        COUNTIF(pass_through_ball = TRUE) AS pass_through_ball,
-        ROUND(COUNTIF(pass_through_ball = TRUE) / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS pass_through_ball_per_match,
-
-        -- Défense (Le pressing haut)
-        COUNTIF(interception_outcome IN ("Won", "Success In Play")) AS interceptions,
-        ROUND(COUNTIF(interception_outcome IN ("Won", "Success In Play")) / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS interceptions_per_match,
-        COUNTIF(duel_outcome = "Won") AS duel_win,
-        ROUND(COUNTIF(duel_outcome = "Won") / NULLIF(COUNT(DISTINCT match_id), 0), 2) AS duel_win_per_match
-
-    FROM raw_events
-    WHERE poste = "Attack"
-    GROUP BY player_id, player, poste
+        sq1.player_id,
+        sq1.match_id,
+        SUM(coll.minutes_played) AS total_min
+    FROM sq1
+    LEFT JOIN {{ ref('int_collective_kpis') }} coll
+        ON  sq1.player_id = coll.player_id
+        AND sq1.match_id  = coll.match_id
+    GROUP BY 1, 2
 ),
 
--- Normalisation min-max de chaque métrique
-normalized AS (
+normalized_kpis AS (
     SELECT
-        player_id,
-        player,
-        poste,
-        nb_match,
+        sq1.player_id,
+        sq1.player,
+        sq1.poste,
+        sq1.match_id,
+        mj.total_min,
 
-        -- Normalisation Attaque
-        (goals_per_match - MIN(goals_per_match) OVER()) / NULLIF(MAX(goals_per_match) OVER() - MIN(goals_per_match) OVER(), 0) AS n_goals,
-        (xg_per_match - MIN(xg_per_match) OVER()) / NULLIF(MAX(xg_per_match) OVER() - MIN(xg_per_match) OVER(), 0) AS n_xg,
-        (tirs_cadres_per_match - MIN(tirs_cadres_per_match) OVER()) / NULLIF(MAX(tirs_cadres_per_match) OVER() - MIN(tirs_cadres_per_match) OVER(), 0) AS n_tirs_cadres,
-        (taux_conversion - MIN(taux_conversion) OVER()) / NULLIF(MAX(taux_conversion) OVER() - MIN(taux_conversion) OVER(), 0) AS n_conversion,
+        -- KPIs bruts
+        sq1.nb_goals,
+        sq1.nb_xg,
+        sq1.nb_tirs_cadres,
+        sq1.taux_conversion,
+        sq1.nb_pass_goal_assist,
+        sq1.nb_dribbles,
+        sq1.nb_pass_complete,
+        sq1.nb_pass_through_ball,
+        sq1.nb_interceptions,
+        sq1.nb_duel_win,
 
-        -- Normalisation Milieu
-        (pass_goal_assist_per_match - MIN(pass_goal_assist_per_match) OVER()) / NULLIF(MAX(pass_goal_assist_per_match) OVER() - MIN(pass_goal_assist_per_match) OVER(), 0) AS n_pass_goal_assist,
-        (dribbles_per_match - MIN(dribbles_per_match) OVER()) / NULLIF(MAX(dribbles_per_match) OVER() - MIN(dribbles_per_match) OVER(), 0) AS n_dribbles,
-        (pass_complete_per_match - MIN(pass_complete_per_match) OVER()) / NULLIF(MAX(pass_complete_per_match) OVER() - MIN(pass_complete_per_match) OVER(), 0) AS n_pass_complete,
-        (pass_through_ball_per_match - MIN(pass_through_ball_per_match) OVER()) / NULLIF(MAX(pass_through_ball_per_match) OVER() - MIN(pass_through_ball_per_match) OVER(), 0) AS n_pass_through_ball,
+        -- KPIs normalisés par match
+        COALESCE(SAFE_DIVIDE(sq1.nb_goals - MIN(sq1.nb_goals) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_goals) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_goals) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_goals_norm,
 
-        -- Normalisation Défense
-        (interceptions_per_match - MIN(interceptions_per_match) OVER()) / NULLIF(MAX(interceptions_per_match) OVER() - MIN(interceptions_per_match) OVER(), 0) AS n_interceptions,
-        (duel_win_per_match - MIN(duel_win_per_match) OVER()) / NULLIF(MAX(duel_win_per_match) OVER() - MIN(duel_win_per_match) OVER(), 0) AS n_duel_win
+        COALESCE(SAFE_DIVIDE(sq1.nb_xg - MIN(sq1.nb_xg) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_xg) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_xg) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_xg_norm,
 
-    FROM stats_attack
+        COALESCE(SAFE_DIVIDE(sq1.nb_tirs_cadres - MIN(sq1.nb_tirs_cadres) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_tirs_cadres) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_tirs_cadres) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_tirs_cadres_norm,
+
+        COALESCE(SAFE_DIVIDE(sq1.taux_conversion - MIN(sq1.taux_conversion) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.taux_conversion) OVER (PARTITION BY sq1.match_id) - MIN(sq1.taux_conversion) OVER (PARTITION BY sq1.match_id)), 0)
+            AS taux_conversion_norm,
+
+        COALESCE(SAFE_DIVIDE(sq1.nb_pass_goal_assist - MIN(sq1.nb_pass_goal_assist) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_pass_goal_assist) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_pass_goal_assist) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_pass_goal_assist_norm,
+
+        COALESCE(SAFE_DIVIDE(sq1.nb_dribbles - MIN(sq1.nb_dribbles) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_dribbles) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_dribbles) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_dribbles_norm,
+
+        COALESCE(SAFE_DIVIDE(sq1.nb_pass_complete - MIN(sq1.nb_pass_complete) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_pass_complete) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_pass_complete) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_pass_complete_norm,
+
+        COALESCE(SAFE_DIVIDE(sq1.nb_pass_through_ball - MIN(sq1.nb_pass_through_ball) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_pass_through_ball) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_pass_through_ball) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_pass_through_ball_norm,
+
+        COALESCE(SAFE_DIVIDE(sq1.nb_interceptions - MIN(sq1.nb_interceptions) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_interceptions) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_interceptions) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_interceptions_norm,
+
+        COALESCE(SAFE_DIVIDE(sq1.nb_duel_win - MIN(sq1.nb_duel_win) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_duel_win) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_duel_win) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_duel_win_norm
+
+    FROM sq1
+    LEFT JOIN minutes_join mj
+        ON  sq1.player_id = mj.player_id
+        AND sq1.match_id  = mj.match_id
 ),
 
 scores AS (
     SELECT
         *,
-        -- Score Attack (Moyenne pure des 6 KPIs : Buts, xG, Conversion, Passes dé, Dribbles, Tirs cadrés)
-        ROUND(
-            (COALESCE(n_goals, 0) + COALESCE(n_xg, 0) + COALESCE(n_conversion, 0) + 
-             COALESCE(n_pass_goal_assist, 0) + COALESCE(n_dribbles, 0) + COALESCE(n_tirs_cadres, 0)) / 6
-        , 4) AS score_attaque,
+        ROUND(0.6 * SAFE_DIVIDE(
+            nb_goals_norm + nb_xg_norm + nb_tirs_cadres_norm + taux_conversion_norm,
+            4), 4) AS score_attaque,
 
-        -- Score Middle (Moyenne pure des 2 KPIs : Passes réussies, Passes cassant des lignes)
-        ROUND(
-            (COALESCE(n_pass_complete, 0) + COALESCE(n_pass_through_ball, 0)) / 2
-        , 4) AS score_milieu,
+        ROUND(0.3 * SAFE_DIVIDE(
+            nb_pass_goal_assist_norm + nb_dribbles_norm + nb_pass_complete_norm + nb_pass_through_ball_norm,
+            4), 4) AS score_middle,
 
-        -- Score Defense (Moyenne pure des 2 KPIs : Interceptions, Duels gagnés)
-        ROUND(
-            (COALESCE(n_interceptions, 0) + COALESCE(n_duel_win, 0)) / 2
-        , 4) AS score_defense
+        ROUND(0.1 * SAFE_DIVIDE(
+            nb_interceptions_norm + nb_duel_win_norm,
+            2), 4) AS score_defense
+    FROM normalized_kpis
+),
 
-    FROM normalized
+scores_with_final AS (
+    SELECT
+        *,
+        ROUND(score_attaque + score_middle + score_defense, 4) AS score_final
+    FROM scores
 )
 
--- Score final pondéré
 SELECT
-    s.player_id,
-    s.player,
-    s.poste,
-    s.nb_match,
-    
-    -- Scores (Pour un attaquant, l'attaque vaut 60%)
-    sc.score_attaque,
-    sc.score_milieu,
-    sc.score_defense,
-    ROUND((sc.score_attaque * 0.6) + (sc.score_milieu * 0.2) + (sc.score_defense * 0.2), 4) AS score_final,
+    player_id,
+    player,
+    poste,
 
-    -- KPI Attaque
-    s.goals,
-    s.goals_per_match,
-    s.xg_total,
-    s.xg_per_match,
-    s.tirs_cadres,
-    s.tirs_cadres_per_match,
-    s.taux_conversion,
+    COUNT(match_id)                 AS nb_matches,
+    SUM(total_min)                  AS total_minutes_played,
+    SUM(nb_goals)                   AS nb_goals,
+    SUM(nb_xg)                      AS nb_xg,
+    SUM(nb_tirs_cadres)             AS nb_tirs_cadres,
+    ROUND(AVG(taux_conversion), 2)  AS taux_conversion_moy,
+    SUM(nb_pass_goal_assist)        AS nb_pass_goal_assist,
+    SUM(nb_dribbles)                AS nb_dribbles,
+    SUM(nb_pass_complete)           AS nb_pass_complete,
+    SUM(nb_pass_through_ball)       AS nb_pass_through_ball,
+    SUM(nb_interceptions)           AS nb_interceptions,
+    SUM(nb_duel_win)                AS nb_duel_win,
 
-    -- KPI Milieu / Création
-    s.pass_goal_assist,
-    s.pass_goal_assist_per_match,
-    s.dribbles_reussis,
-    s.dribbles_per_match,
-    s.pass_complete,
-    s.pass_complete_per_match,
-    s.pass_through_ball,
-    s.pass_through_ball_per_match,
+    ROUND(AVG(score_attaque), 2)    AS score_attaque,
+    ROUND(AVG(score_middle), 2)     AS score_middle,
+    ROUND(AVG(score_defense), 2)    AS score_defense,
+    ROUND(AVG(score_final), 2)      AS score_final
 
-    -- KPI Défense
-    s.interceptions,
-    s.interceptions_per_match,
-    s.duel_win,
-    s.duel_win_per_match
-
-FROM stats_attack AS s
-LEFT JOIN scores AS sc
-ON s.player_id = sc.player_id
-ORDER BY score_final DESC
+FROM scores_with_final
+GROUP BY 1, 2, 3
+order by score_final desc
