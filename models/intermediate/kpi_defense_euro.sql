@@ -135,5 +135,3 @@ SELECT
 
 FROM scores_with_final
 GROUP BY 1, 2, 3
-
-
