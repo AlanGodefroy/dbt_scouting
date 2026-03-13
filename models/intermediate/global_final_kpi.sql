@@ -3,6 +3,7 @@ WITH raw_stats AS (
     player,
     player_id,
     age,
+    COUNT(match_id) AS nb_matches_played,
     SUM(nb_goals) AS total_goals,
     SUM(minutes_played)    AS total_minutes,
     SUM(nb_fouls_suffered) AS total_fouls,
@@ -16,6 +17,7 @@ normalized AS (
     player,
     player_id,
     age,
+    nb_matches_played,
     total_goals,
     total_minutes,
     total_fouls,
@@ -33,6 +35,7 @@ SELECT
   player,
   player_id,
   age,
+  nb_matches_played,
   total_goals,
   total_minutes,
   total_fouls,
@@ -51,6 +54,7 @@ SELECT
   final.player,
   final.player_id,
   final.age,
+  final.nb_matches_played,
   final.total_goals,
   final.total_minutes,
   final.total_fouls,
@@ -60,3 +64,4 @@ SELECT
 FROM final
 LEFT JOIN {{ ref('stg_Raw_data__Poste_Leverkusen') }} AS po
 on final.player=po.player_name
+
