@@ -21,7 +21,6 @@ WITH sq1 AS (
     GROUP BY 1, 2, 3, 4
 ),
 
--- Normalisation min-max de chaque KPI individuellement
 normalized_kpis AS (
     SELECT
         player_id,
@@ -41,51 +40,50 @@ normalized_kpis AS (
         nb_shot_statsbomb_xg,
         nb_shot_outcome_goal,
 
-        -- KPIs normalisés
-        ROUND(SAFE_DIVIDE(nb_duel_outcome - MIN(nb_duel_outcome) OVER (),
-            NULLIF(MAX(nb_duel_outcome) OVER () - MIN(nb_duel_outcome) OVER (), 0)), 4)
+        -- KPIs normalisés par match
+        COALESCE(SAFE_DIVIDE(nb_duel_outcome - MIN(nb_duel_outcome) OVER (PARTITION BY match_id),
+            MAX(nb_duel_outcome) OVER (PARTITION BY match_id) - MIN(nb_duel_outcome) OVER (PARTITION BY match_id)), 0)
             AS nb_duel_outcome_norm,
 
-        ROUND(SAFE_DIVIDE(nb_interception_outcome - MIN(nb_interception_outcome) OVER (),
-            NULLIF(MAX(nb_interception_outcome) OVER () - MIN(nb_interception_outcome) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_interception_outcome - MIN(nb_interception_outcome) OVER (PARTITION BY match_id),
+            MAX(nb_interception_outcome) OVER (PARTITION BY match_id) - MIN(nb_interception_outcome) OVER (PARTITION BY match_id)), 0)
             AS nb_interception_outcome_norm,
 
-        ROUND(SAFE_DIVIDE(nb_block - MIN(nb_block) OVER (),
-            NULLIF(MAX(nb_block) OVER () - MIN(nb_block) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_block - MIN(nb_block) OVER (PARTITION BY match_id),
+            MAX(nb_block) OVER (PARTITION BY match_id) - MIN(nb_block) OVER (PARTITION BY match_id)), 0)
             AS nb_block_norm,
 
-        ROUND(SAFE_DIVIDE(nb_clearance_aerial_won - MIN(nb_clearance_aerial_won) OVER (),
-            NULLIF(MAX(nb_clearance_aerial_won) OVER () - MIN(nb_clearance_aerial_won) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_clearance_aerial_won - MIN(nb_clearance_aerial_won) OVER (PARTITION BY match_id),
+            MAX(nb_clearance_aerial_won) OVER (PARTITION BY match_id) - MIN(nb_clearance_aerial_won) OVER (PARTITION BY match_id)), 0)
             AS nb_clearance_aerial_won_norm,
 
-        ROUND(SAFE_DIVIDE(nb_under_pressure_succes - MIN(nb_under_pressure_succes) OVER (),
-            NULLIF(MAX(nb_under_pressure_succes) OVER () - MIN(nb_under_pressure_succes) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_under_pressure_succes - MIN(nb_under_pressure_succes) OVER (PARTITION BY match_id),
+            MAX(nb_under_pressure_succes) OVER (PARTITION BY match_id) - MIN(nb_under_pressure_succes) OVER (PARTITION BY match_id)), 0)
             AS nb_under_pressure_succes_norm,
 
-        ROUND(SAFE_DIVIDE(nb_pass_outcome_complete - MIN(nb_pass_outcome_complete) OVER (),
-            NULLIF(MAX(nb_pass_outcome_complete) OVER () - MIN(nb_pass_outcome_complete) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_pass_outcome_complete - MIN(nb_pass_outcome_complete) OVER (PARTITION BY match_id),
+            MAX(nb_pass_outcome_complete) OVER (PARTITION BY match_id) - MIN(nb_pass_outcome_complete) OVER (PARTITION BY match_id)), 0)
             AS nb_pass_outcome_complete_norm,
 
-        ROUND(SAFE_DIVIDE(nb_pass_cross - MIN(nb_pass_cross) OVER (),
-            NULLIF(MAX(nb_pass_cross) OVER () - MIN(nb_pass_cross) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_pass_cross - MIN(nb_pass_cross) OVER (PARTITION BY match_id),
+            MAX(nb_pass_cross) OVER (PARTITION BY match_id) - MIN(nb_pass_cross) OVER (PARTITION BY match_id)), 0)
             AS nb_pass_cross_norm,
 
-        ROUND(SAFE_DIVIDE(nb_pass_goal_assist - MIN(nb_pass_goal_assist) OVER (),
-            NULLIF(MAX(nb_pass_goal_assist) OVER () - MIN(nb_pass_goal_assist) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_pass_goal_assist - MIN(nb_pass_goal_assist) OVER (PARTITION BY match_id),
+            MAX(nb_pass_goal_assist) OVER (PARTITION BY match_id) - MIN(nb_pass_goal_assist) OVER (PARTITION BY match_id)), 0)
             AS nb_pass_goal_assist_norm,
 
-        ROUND(SAFE_DIVIDE(nb_shot_statsbomb_xg - MIN(nb_shot_statsbomb_xg) OVER (),
-            NULLIF(MAX(nb_shot_statsbomb_xg) OVER () - MIN(nb_shot_statsbomb_xg) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_shot_statsbomb_xg - MIN(nb_shot_statsbomb_xg) OVER (PARTITION BY match_id),
+            MAX(nb_shot_statsbomb_xg) OVER (PARTITION BY match_id) - MIN(nb_shot_statsbomb_xg) OVER (PARTITION BY match_id)), 0)
             AS nb_shot_statsbomb_xg_norm,
 
-        ROUND(SAFE_DIVIDE(nb_shot_outcome_goal - MIN(nb_shot_outcome_goal) OVER (),
-            NULLIF(MAX(nb_shot_outcome_goal) OVER () - MIN(nb_shot_outcome_goal) OVER (), 0)), 4)
+        COALESCE(SAFE_DIVIDE(nb_shot_outcome_goal - MIN(nb_shot_outcome_goal) OVER (PARTITION BY match_id),
+            MAX(nb_shot_outcome_goal) OVER (PARTITION BY match_id) - MIN(nb_shot_outcome_goal) OVER (PARTITION BY match_id)), 0)
             AS nb_shot_outcome_goal_norm
 
     FROM sq1
 ),
 
--- Calcul des scores à partir des KPIs normalisés
 scores AS (
     SELECT
         *,
