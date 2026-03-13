@@ -4,133 +4,152 @@ WITH sq1 AS (
         evl.player,
         pl.poste,
         evl.match_id,
-        COUNTIF(evl.duel_outcome IN ('Success','Success in play','Won')) as nb_duel_outcome,
-        COUNTIF(evl.interception_outcome IN ('Success','Success in play','Won')) as nb_interception_outcome,
-        (COUNT(evl.block_deflection) + COUNT(evl.block_save_block)) as nb_block,
-        COUNT(evl.clearance_aerial_won) as nb_clearance_aerial_won,
-        COUNT(evl.under_pressure) as nb_under_pressure_succes,
-        COUNTIF(evl.pass_outcome IS NULL AND evl.event_type = "Pass") as nb_pass_outcome_complete,
-        COUNT(evl.pass_cross) as nb_pass_cross,
-        COUNT(evl.pass_goal_assist) as nb_pass_goal_assist,
-        COUNT(evl.shot_statsbomb_xg) as nb_shot_statsbomb_xg,
-        COUNTIF(evl.shot_outcome = "Goal") as nb_shot_outcome_goal
+        COUNTIF(evl.duel_outcome IN ('Success','Success in play','Won'))          AS nb_duel_outcome,
+        COUNTIF(evl.interception_outcome IN ('Success','Success in play','Won'))  AS nb_interception_outcome,
+        (COUNT(evl.block_deflection) + COUNT(evl.block_save_block))              AS nb_block,
+        COUNT(evl.clearance_aerial_won)                                          AS nb_clearance_aerial_won,
+        COUNT(evl.under_pressure)                                                AS nb_under_pressure_succes,
+        COUNTIF(evl.pass_outcome IS NULL AND evl.event_type = "Pass")            AS nb_pass_outcome_complete,
+        COUNT(evl.pass_cross)                                                    AS nb_pass_cross,
+        COUNT(evl.pass_goal_assist)                                              AS nb_pass_goal_assist,
+        COUNT(evl.shot_statsbomb_xg)                                             AS nb_shot_statsbomb_xg,
+        COUNTIF(evl.shot_outcome = "Goal")                                       AS nb_shot_outcome_goal
     FROM {{ ref('stg_Raw_data__Events_Leverkusen') }} AS evl
     LEFT JOIN {{ ref('stg_Raw_data__Poste_Leverkusen') }} AS pl
         ON evl.player = pl.player_name
     WHERE evl.player_id IS NOT NULL AND pl.poste LIKE 'Defense'
-    GROUP BY 1,2,3,4
+    GROUP BY 1, 2, 3, 4
 ),
 
 minutes_join AS (
-
-SELECT 
+    SELECT
         sq1.player_id,
-        sq1.match_id, 
-        SUM(coll.minutes_played) as total_min 
-FROM sq1
-LEFT JOIN {{ ref('int_collective_kpis') }} coll
-    ON sq1.player_id = coll.player_id
-    AND sq1.match_id = coll.match_id
-GROUP BY 1,2
+        sq1.match_id,
+        SUM(coll.minutes_played) AS total_min
+    FROM sq1
+    LEFT JOIN {{ ref('int_collective_kpis') }} coll
+        ON  sq1.player_id = coll.player_id
+        AND sq1.match_id  = coll.match_id
+    GROUP BY 1, 2
 ),
 
-score_inter as (
-
-SELECT
-    sq1.player_id,       
+-- Normalisation min-max de chaque KPI sur l'ensemble des lignes (tous joueurs, tous matchs)
+normalized_kpis AS (
+    SELECT
+        sq1.player_id,
         sq1.player,
         sq1.poste,
         sq1.match_id,
-        coll.total_min,
-        sq1.nb_under_pressure_succes,
-        sq1.nb_pass_outcome_complete,
+        mj.total_min,
+
+        -- KPIs bruts (conservés pour l'agrégation finale)
         sq1.nb_duel_outcome,
         sq1.nb_interception_outcome,
         sq1.nb_block,
         sq1.nb_clearance_aerial_won,
+        sq1.nb_under_pressure_succes,
+        sq1.nb_pass_outcome_complete,
         sq1.nb_pass_cross,
         sq1.nb_pass_goal_assist,
         sq1.nb_shot_statsbomb_xg,
         sq1.nb_shot_outcome_goal,
-        ROUND((0.6 * SAFE_DIVIDE(sq1.nb_duel_outcome + sq1.nb_interception_outcome + sq1.nb_block + sq1.nb_clearance_aerial_won + sq1.nb_under_pressure_succes + sq1.nb_pass_outcome_complete, 6)),2) AS score_defense,
-        ROUND((0.3 * SAFE_DIVIDE(sq1.nb_pass_cross + sq1.nb_pass_goal_assist, 2)),2) AS score_middle,
-        ROUND((0.1 * SAFE_DIVIDE(sq1.nb_shot_statsbomb_xg + sq1.nb_shot_outcome_goal, 2)),2) AS score_attaque
-FROM sq1
-LEFT JOIN minutes_join as coll
-    ON sq1.player_id = coll.player_id
-    AND sq1.match_id = coll.match_id
+
+        -- KPIs normalisés individuellement
+        ROUND(SAFE_DIVIDE(sq1.nb_duel_outcome - MIN(sq1.nb_duel_outcome) OVER (),
+            NULLIF(MAX(sq1.nb_duel_outcome) OVER () - MIN(sq1.nb_duel_outcome) OVER (), 0)), 4)
+            AS nb_duel_outcome_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_interception_outcome - MIN(sq1.nb_interception_outcome) OVER (),
+            NULLIF(MAX(sq1.nb_interception_outcome) OVER () - MIN(sq1.nb_interception_outcome) OVER (), 0)), 4)
+            AS nb_interception_outcome_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_block - MIN(sq1.nb_block) OVER (),
+            NULLIF(MAX(sq1.nb_block) OVER () - MIN(sq1.nb_block) OVER (), 0)), 4)
+            AS nb_block_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_clearance_aerial_won - MIN(sq1.nb_clearance_aerial_won) OVER (),
+            NULLIF(MAX(sq1.nb_clearance_aerial_won) OVER () - MIN(sq1.nb_clearance_aerial_won) OVER (), 0)), 4)
+            AS nb_clearance_aerial_won_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_under_pressure_succes - MIN(sq1.nb_under_pressure_succes) OVER (),
+            NULLIF(MAX(sq1.nb_under_pressure_succes) OVER () - MIN(sq1.nb_under_pressure_succes) OVER (), 0)), 4)
+            AS nb_under_pressure_succes_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_pass_outcome_complete - MIN(sq1.nb_pass_outcome_complete) OVER (),
+            NULLIF(MAX(sq1.nb_pass_outcome_complete) OVER () - MIN(sq1.nb_pass_outcome_complete) OVER (), 0)), 4)
+            AS nb_pass_outcome_complete_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_pass_cross - MIN(sq1.nb_pass_cross) OVER (),
+            NULLIF(MAX(sq1.nb_pass_cross) OVER () - MIN(sq1.nb_pass_cross) OVER (), 0)), 4)
+            AS nb_pass_cross_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_pass_goal_assist - MIN(sq1.nb_pass_goal_assist) OVER (),
+            NULLIF(MAX(sq1.nb_pass_goal_assist) OVER () - MIN(sq1.nb_pass_goal_assist) OVER (), 0)), 4)
+            AS nb_pass_goal_assist_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_shot_statsbomb_xg - MIN(sq1.nb_shot_statsbomb_xg) OVER (),
+            NULLIF(MAX(sq1.nb_shot_statsbomb_xg) OVER () - MIN(sq1.nb_shot_statsbomb_xg) OVER (), 0)), 4)
+            AS nb_shot_statsbomb_xg_norm,
+
+        ROUND(SAFE_DIVIDE(sq1.nb_shot_outcome_goal - MIN(sq1.nb_shot_outcome_goal) OVER (),
+            NULLIF(MAX(sq1.nb_shot_outcome_goal) OVER () - MIN(sq1.nb_shot_outcome_goal) OVER (), 0)), 4)
+            AS nb_shot_outcome_goal_norm
+
+    FROM sq1
+    LEFT JOIN minutes_join mj
+        ON  sq1.player_id = mj.player_id
+        AND sq1.match_id  = mj.match_id
 ),
 
-score_final as (
-
-SELECT  
-        sci.player_id,
-        sci.player,
-        sci.poste,
-        sci.match_id,
-        sci.total_min,
-        sci.nb_under_pressure_succes,
-        sci.nb_pass_outcome_complete,
-        sci.nb_duel_outcome,
-        sci.nb_interception_outcome,
-        sci.nb_block,
-        sci.nb_clearance_aerial_won,
-        sci.nb_pass_cross,
-        sci.nb_pass_goal_assist,
-        sci.nb_shot_statsbomb_xg,
-        sci.nb_shot_outcome_goal,
-        sci.score_defense,
-        sci.score_middle,
-        sci.score_attaque,
-        ROUND(score_defense + score_middle + score_attaque, 4) AS score_final
-
-FROM score_inter as sci
-),
-
-
--- normalisation min-max par match sur l'ensemble des joueurs
-normalized AS (
+-- Calcul des scores à partir des KPIs normalisés
+scores AS (
     SELECT
-        sf.*,
-        ROUND(SAFE_DIVIDE(sf.score_defense - MIN(sf.score_defense) OVER(),
-            NULLIF(MAX(sf.score_defense) OVER() - MIN(sf.score_defense) OVER(), 0)), 4) AS score_defense_norm,
+        *,
+        ROUND(0.6 * SAFE_DIVIDE(
+            nb_duel_outcome_norm + nb_interception_outcome_norm + nb_block_norm
+            + nb_clearance_aerial_won_norm + nb_under_pressure_succes_norm + nb_pass_outcome_complete_norm,
+            6), 4) AS score_defense,
 
-        ROUND(SAFE_DIVIDE(sf.score_middle - MIN(sf.score_middle) OVER(),
-            NULLIF(MAX(sf.score_middle) OVER() - MIN(sf.score_middle) OVER(), 0)), 4) AS score_middle_norm,
+        ROUND(0.3 * SAFE_DIVIDE(
+            nb_pass_cross_norm + nb_pass_goal_assist_norm,
+            2), 4) AS score_middle,
 
-        ROUND(SAFE_DIVIDE(sf.score_attaque - MIN(sf.score_attaque) OVER(),
-            NULLIF(MAX(sf.score_attaque) OVER() - MIN(sf.score_attaque) OVER(), 0)), 4) AS score_attack_norm,
+        ROUND(0.1 * SAFE_DIVIDE(
+            nb_shot_statsbomb_xg_norm + nb_shot_outcome_goal_norm,
+            2), 4) AS score_attaque
+    FROM normalized_kpis
+),
 
-        ROUND(SAFE_DIVIDE(sf.score_final - MIN(sf.score_final) OVER(),
-            NULLIF(MAX(sf.score_final) OVER() - MIN(sf.score_final) OVER(), 0)), 4) AS score_final_norm
-    FROM score_final as sf
+scores_with_final AS (
+    SELECT
+        *,
+        ROUND(score_defense + score_middle + score_attaque, 4) AS score_final
+    FROM scores
 )
 
-SELECT 
-    n.player_id,
-    n.player,
-    n.poste,
-    
-    COUNT(n.match_id) as nb_matches,
-    SUM(n.total_min) as total_minutes_played,
-    SUM(n.nb_under_pressure_succes) as nb_under_pressure_succes,
-    SUM(n.nb_pass_outcome_complete) as nb_pass_outcome_complete,
-    SUM(n.nb_duel_outcome) as nb_duel_outcome,
-    SUM(n.nb_interception_outcome) as nb_interception_outcome,
-    SUM(n.nb_block) as nb_block,
-    SUM(n.nb_clearance_aerial_won) as nb_clearance_aerial_won,
-    SUM(n.nb_pass_cross) as nb_pass_cross,
-    SUM(n.nb_pass_goal_assist) as nb_pass_goal,
-    SUM(n.nb_shot_statsbomb_xg) as nb_pass_shot_xg,
-    SUM(n.nb_shot_outcome_goal) as nb_shot_outcome_goal,
+SELECT
+    player_id,
+    player,
+    poste,
 
-    ROUND(AVG(n.score_defense_norm),2) as score_defense,
-    ROUND(AVG(n.score_middle_norm),2) as score_middle,
-    ROUND(AVG(n.score_attack_norm),2) as score_attack,
-    ROUND(AVG(n.score_final_norm),2) as score_final
+    COUNT(match_id)                         AS nb_matches,
+    SUM(total_min)                          AS total_minutes_played,
+    SUM(nb_under_pressure_succes)           AS nb_under_pressure_succes,
+    SUM(nb_pass_outcome_complete)           AS nb_pass_outcome_complete,
+    SUM(nb_duel_outcome)                    AS nb_duel_outcome,
+    SUM(nb_interception_outcome)            AS nb_interception_outcome,
+    SUM(nb_block)                           AS nb_block,
+    SUM(nb_clearance_aerial_won)            AS nb_clearance_aerial_won,
+    SUM(nb_pass_cross)                      AS nb_pass_cross,
+    SUM(nb_pass_goal_assist)                AS nb_pass_goal,
+    SUM(nb_shot_statsbomb_xg)               AS nb_shot_xg,
+    SUM(nb_shot_outcome_goal)               AS nb_shot_outcome_goal,
 
-FROM normalized n
-GROUP BY 1,2,3
+    ROUND(AVG(score_defense), 2)            AS score_defense,
+    ROUND(AVG(score_middle), 2)             AS score_middle,
+    ROUND(AVG(score_attaque), 2)            AS score_attack,
+    ROUND(AVG(score_final), 2)              AS score_final
 
-
+FROM scores_with_final
+GROUP BY 1, 2, 3
 
