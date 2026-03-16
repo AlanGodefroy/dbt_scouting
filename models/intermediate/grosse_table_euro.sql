@@ -28,7 +28,7 @@ defense_euro AS (
 FROM {{ ref('kpi_defense_euro') }}
 )
 ,
-grosse_table AS (
+petite_table AS (
 SELECT 
 * 
 FROM middle_euro
@@ -36,6 +36,31 @@ UNION ALL
 SELECT 
 * 
 FROM defense_euro
+)
+,
+attack_euro AS (
+    SELECT 
+    player_id,
+    player,
+    poste,
+    score_attaque AS score_attack,
+    score_milieu AS score_middle,
+    score_defense,
+    score_final,
+    age,
+    market_value,
+    current_club_name,
+    FROM {{ ref('attack_kpi_euro') }}
+)
+,
+grosse_table AS (
+    SELECT 
+    * 
+    FROM petite_table
+    UNION ALL
+    SELECT 
+    * 
+    FROM attack_euro
 )
 
 SELECT 
