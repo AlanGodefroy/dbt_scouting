@@ -107,7 +107,9 @@ scores_with_final AS (
         *,
         ROUND(score_defense + score_middle + score_attaque, 4) AS score_final
     FROM scores
-)
+),
+
+sfinal AS (
 
 SELECT
     player_id,
@@ -133,3 +135,18 @@ SELECT
 
 FROM scores_with_final
 GROUP BY 1, 2, 3
+)
+
+SELECT
+    sf.*,
+    europ.team,
+    europ.market_value,
+    europ.current_club_name,
+    europ.age
+FROM sfinal AS sf
+LEFT JOIN {{ ref('stg_Raw_data__euro_24_global_data_players') }} AS europ
+ON sf.player_id = europ.player_id
+WHERE europ.market_value <=30000000 
+    AND sf.nb_matches > 2 
+    AND europ.age < 27
+ORDER BY sf.score_final DESC
