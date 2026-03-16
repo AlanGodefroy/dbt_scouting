@@ -130,28 +130,33 @@ scores_with_final AS (
 )
 
 SELECT
-    player_id,
-    player,
-    poste,
+    swf.player_id,
+    swf.player,
+    swf.poste,
 
-    COUNT(match_id)                 AS nb_matches,
-    SUM(total_min)                  AS total_minutes_played,
-    SUM(nb_goals)                   AS nb_goals,
-    SUM(nb_xg)                      AS nb_xg,
-    SUM(nb_tirs_cadres)             AS nb_tirs_cadres,
-    ROUND(AVG(taux_conversion), 2)  AS taux_conversion_moy,
-    SUM(nb_pass_goal_assist)        AS nb_pass_goal_assist,
-    SUM(nb_dribbles)                AS nb_dribbles,
-    SUM(nb_pass_complete)           AS nb_pass_complete,
-    SUM(nb_pass_through_ball)       AS nb_pass_through_ball,
-    SUM(nb_interceptions)           AS nb_interceptions,
-    SUM(nb_duel_win)                AS nb_duel_win,
+    -- Infos joueur
+    DATE_DIFF(CURRENT_DATE(), dob.date_of_birth, YEAR) AS age,
 
-    ROUND(AVG(score_attaque), 2)    AS score_attaque,
-    ROUND(AVG(score_middle), 2)     AS score_middle,
-    ROUND(AVG(score_defense), 2)    AS score_defense,
-    ROUND(AVG(score_final), 2)      AS score_final
+    COUNT(swf.match_id)                 AS nb_matches,
+    SUM(swf.total_min)                  AS total_minutes_played,
+    SUM(swf.nb_goals)                   AS nb_goals,
+    SUM(swf.nb_xg)                      AS nb_xg,
+    SUM(swf.nb_tirs_cadres)             AS nb_tirs_cadres,
+    ROUND(AVG(swf.taux_conversion), 2)  AS taux_conversion_moy,
+    SUM(swf.nb_pass_goal_assist)        AS nb_pass_goal_assist,
+    SUM(swf.nb_dribbles)                AS nb_dribbles,
+    SUM(swf.nb_pass_complete)           AS nb_pass_complete,
+    SUM(swf.nb_pass_through_ball)       AS nb_pass_through_ball,
+    SUM(swf.nb_interceptions)           AS nb_interceptions,
+    SUM(swf.nb_duel_win)                AS nb_duel_win,
 
-FROM scores_with_final
-GROUP BY 1, 2, 3
-order by score_final desc
+    ROUND(AVG(swf.score_attaque), 2)    AS score_attaque,
+    ROUND(AVG(swf.score_middle), 2)     AS score_middle,
+    ROUND(AVG(swf.score_defense), 2)    AS score_defense,
+    ROUND(AVG(swf.score_final), 2)      AS score_final
+
+FROM scores_with_final AS swf
+LEFT JOIN {{ ref('stg_Raw_data__leverkusen_players_date_birth') }} AS dob
+    ON swf.player = dob.player_name
+GROUP BY 1, 2, 3, dob.date_of_birth
+ORDER BY score_final DESC
