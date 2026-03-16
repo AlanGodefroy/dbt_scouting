@@ -1,49 +1,42 @@
-/*WITH time_played AS (
-    SELECT 
-        player,
-        SUM(minutes_played) AS total_minutes
-    FROM  {{ ref('int_collective_kpis') }}
-    GROUP BY player
-), */
-
 WITH stats_attack AS (
     SELECT
-        player_id,
-        player,
-        poste,
-        COUNT(DISTINCT match_id) AS nb_match,
+        evl.player_id,
+        evl.player,
+        pl.poste,
+        COUNT(DISTINCT evl.match_id) AS nb_match,
 
-        -- Attaque (Spécifique aux attaquants)
-        COUNTIF(shot_outcome = "Goal") AS goals,
-        ROUND(COUNTIF(shot_outcome = "Goal") / COUNT(DISTINCT match_id), 2) AS goals_per_match,
-        ROUND(SUM(shot_statsbomb_xg), 2) AS xg_total,
-        ROUND(SUM(shot_statsbomb_xg) / COUNT(DISTINCT match_id), 2) AS xg_per_match,
-        COUNTIF(shot_outcome IN ('Goal', 'Saved')) AS tirs_cadres,
-        ROUND(COUNTIF(shot_outcome IN ('Goal', 'Saved')) / COUNT(DISTINCT match_id), 2) AS tirs_cadres_per_match,
-        ROUND(COUNTIF(shot_outcome = 'Goal') / NULLIF(COUNTIF(shot_outcome IS NOT NULL), 0), 2) AS taux_conversion,
+        -- Attaque
+        COUNTIF(evl.shot_outcome = "Goal") AS goals,
+        ROUND(COUNTIF(evl.shot_outcome = "Goal") / COUNT(DISTINCT evl.match_id), 2) AS goals_per_match,
+        ROUND(SUM(evl.shot_statsbomb_xg), 2) AS xg_total,
+        ROUND(SUM(evl.shot_statsbomb_xg) / COUNT(DISTINCT evl.match_id), 2) AS xg_per_match,
+        COUNTIF(evl.shot_outcome IN ('Goal', 'Saved')) AS tirs_cadres,
+        ROUND(COUNTIF(evl.shot_outcome IN ('Goal', 'Saved')) / COUNT(DISTINCT evl.match_id), 2) AS tirs_cadres_per_match,
+        ROUND(COUNTIF(evl.shot_outcome = 'Goal') / NULLIF(COUNTIF(evl.shot_outcome IS NOT NULL), 0), 2) AS taux_conversion,
 
-        -- Milieu / Création (Adapté aux attaquants)
-        COUNTIF(pass_goal_assist = TRUE) AS pass_goal_assist,
-        ROUND(COUNTIF(pass_goal_assist = TRUE) / COUNT(DISTINCT match_id), 2) AS pass_goal_assist_per_match,
-        COUNTIF(dribble_outcome = 'Complete') AS dribbles_reussis,
-        ROUND(COUNTIF(dribble_outcome = 'Complete') / COUNT(DISTINCT match_id), 2) AS dribbles_per_match,
-        COUNTIF(event_type = "Pass" AND pass_outcome IS NULL) AS pass_complete,
-        ROUND(COUNTIF(event_type = "Pass" AND pass_outcome IS NULL) / COUNT(DISTINCT match_id), 2) AS pass_complete_per_match,
-        COUNTIF(pass_through_ball = TRUE) AS pass_through_ball,
-        ROUND(COUNTIF(pass_through_ball = TRUE) / COUNT(DISTINCT match_id), 2) AS pass_through_ball_per_match,
+        -- Milieu / Création
+        COUNTIF(evl.pass_goal_assist = TRUE) AS pass_goal_assist,
+        ROUND(COUNTIF(evl.pass_goal_assist = TRUE) / COUNT(DISTINCT evl.match_id), 2) AS pass_goal_assist_per_match,
+        COUNTIF(evl.dribble_outcome = 'Complete') AS dribbles_reussis,
+        ROUND(COUNTIF(evl.dribble_outcome = 'Complete') / COUNT(DISTINCT evl.match_id), 2) AS dribbles_per_match,
+        COUNTIF(evl.event_type = "Pass" AND evl.pass_outcome IS NULL) AS pass_complete,
+        ROUND(COUNTIF(evl.event_type = "Pass" AND evl.pass_outcome IS NULL) / COUNT(DISTINCT evl.match_id), 2) AS pass_complete_per_match,
+        COUNTIF(evl.pass_through_ball = TRUE) AS pass_through_ball,
+        ROUND(COUNTIF(evl.pass_through_ball = TRUE) / COUNT(DISTINCT evl.match_id), 2) AS pass_through_ball_per_match,
 
-        -- Défense (Le pressing haut)
-        COUNTIF(interception_outcome IN ("Won", "Success In Play")) AS interceptions,
-        ROUND(COUNTIF(interception_outcome IN ("Won", "Success In Play")) / COUNT(DISTINCT match_id), 2) AS interceptions_per_match,
-        COUNTIF(duel_outcome = "Won") AS duel_win,
-        ROUND(COUNTIF(duel_outcome = "Won") / COUNT(DISTINCT match_id), 2) AS duel_win_per_match
+        -- Défense
+        COUNTIF(evl.interception_outcome IN ("Won", "Success In Play")) AS interceptions,
+        ROUND(COUNTIF(evl.interception_outcome IN ("Won", "Success In Play")) / COUNT(DISTINCT evl.match_id), 2) AS interceptions_per_match,
+        COUNTIF(evl.duel_outcome = "Won") AS duel_win,
+        ROUND(COUNTIF(evl.duel_outcome = "Won") / COUNT(DISTINCT evl.match_id), 2) AS duel_win_per_match
 
-    FROM {{ ref('Event_euro_all') }}
-    WHERE poste = "Attack" -- Assure-toi que c'est bien "Attack" ou "Forward" dans votre table
-    GROUP BY player_id, player, poste
+    FROM {{ ref('stg_Raw_data__Events_euro_2024') }} AS evl
+    LEFT JOIN {{ ref('stg_Raw_data__Poste_euro_2024') }} AS pl
+        ON evl.player = pl.player_name
+    WHERE evl.player_id IS NOT NULL AND pl.poste = 'Attack'
+    GROUP BY evl.player_id, evl.player, pl.poste
 ),
 
--- Normalisation min-max de chaque métrique
 normalized AS (
     SELECT
         player_id,
@@ -73,18 +66,15 @@ normalized AS (
 scores AS (
     SELECT
         *,
-        -- Score Attack (Moyenne pure des 6 KPIs : Buts, xG, Conversion, Passes dé, Dribbles, Tirs cadrés)
         ROUND(
-            (COALESCE(n_goals, 0) + COALESCE(n_xg, 0) + COALESCE(n_conversion, 0) + 
+            (COALESCE(n_goals, 0) + COALESCE(n_xg, 0) + COALESCE(n_conversion, 0) +
              COALESCE(n_pass_goal_assist, 0) + COALESCE(n_dribbles, 0) + COALESCE(n_tirs_cadres, 0)) / 6
         , 4) AS score_attaque,
 
-        -- Score Middle (Moyenne pure des 2 KPIs : Passes réussies, Passes cassant des lignes)
         ROUND(
             (COALESCE(n_pass_complete, 0) + COALESCE(n_pass_through_ball, 0)) / 2
         , 4) AS score_milieu,
 
-        -- Score Defense (Moyenne pure des 2 KPIs : Interceptions, Duels gagnés)
         ROUND(
             (COALESCE(n_interceptions, 0) + COALESCE(n_duel_win, 0)) / 2
         , 4) AS score_defense
@@ -92,16 +82,19 @@ scores AS (
     FROM normalized
 )
 
--- Score final pondéré
 SELECT
     s.player_id,
     s.player,
     s.poste,
     s.nb_match,
-    /*t.total_minutes,*/
-    /*ROUND(t.total_minutes / s.nb_match, 2) AS total_minutes_per_match,*/
-    
-    -- Scores (Pour un attaquant, l'attaque vaut 60%)
+
+    -- Infos joueur
+    gd.team,
+    gd.current_club_name,
+    gd.market_value,
+    DATE_DIFF(CURRENT_DATE(), gd.date_of_birth, YEAR) AS age,
+
+    -- Scores
     sc.score_attaque,
     sc.score_milieu,
     sc.score_defense,
@@ -134,7 +127,7 @@ SELECT
 
 FROM stats_attack AS s
 LEFT JOIN scores AS sc
-ON s.player_id = sc.player_id -- Plus sécurisé de joindre sur l'ID que sur le nom
-/*LEFT JOIN time_played AS t
-ON s.player = t.player*/
+    ON s.player_id = sc.player_id
+LEFT JOIN {{ ref('stg_Raw_data__euro_24_global_data_players') }} AS gd
+    ON s.player_id = gd.player_id
 ORDER BY score_final DESC
