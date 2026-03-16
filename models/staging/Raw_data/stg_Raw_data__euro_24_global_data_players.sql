@@ -14,7 +14,8 @@ renamed as (
         team,
         market_value,
         current_club_name,
-        date_of_birth
+        date_of_birth,
+        DATE_DIFF(DATE '2024-09-01', date_of_birth, YEAR) AS age
 
     from source
 
