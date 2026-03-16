@@ -8,17 +8,17 @@ WITH stats_attack AS (
         -- Attaque
         COUNTIF(evl.shot_outcome = "Goal") AS goals,
         ROUND(COUNTIF(evl.shot_outcome = "Goal") / COUNT(DISTINCT evl.match_id), 2) AS goals_per_match,
-        ROUND(SUM(evl.shot_statsbomb_xg), 2) AS xg_total,
-        ROUND(SUM(evl.shot_statsbomb_xg) / COUNT(DISTINCT evl.match_id), 2) AS xg_per_match,
+        COUNTIF(evl.play_pattern = 'From Counter') AS contre_attaques,
+        ROUND(COUNTIF(evl.play_pattern = 'From Counter') / COUNT(DISTINCT evl.match_id), 2) AS contre_attaques_per_match,
         COUNTIF(evl.shot_outcome IN ('Goal', 'Saved')) AS tirs_cadres,
         ROUND(COUNTIF(evl.shot_outcome IN ('Goal', 'Saved')) / COUNT(DISTINCT evl.match_id), 2) AS tirs_cadres_per_match,
         ROUND(COUNTIF(evl.shot_outcome = 'Goal') / NULLIF(COUNTIF(evl.shot_outcome IS NOT NULL), 0), 2) AS taux_conversion,
-
-        -- Milieu / Création
         COUNTIF(evl.pass_goal_assist = TRUE) AS pass_goal_assist,
         ROUND(COUNTIF(evl.pass_goal_assist = TRUE) / COUNT(DISTINCT evl.match_id), 2) AS pass_goal_assist_per_match,
         COUNTIF(evl.dribble_outcome = 'Complete') AS dribbles_reussis,
         ROUND(COUNTIF(evl.dribble_outcome = 'Complete') / COUNT(DISTINCT evl.match_id), 2) AS dribbles_per_match,
+
+        -- Milieu / Création
         COUNTIF(evl.event_type = "Pass" AND evl.pass_outcome IS NULL) AS pass_complete,
         ROUND(COUNTIF(evl.event_type = "Pass" AND evl.pass_outcome IS NULL) / COUNT(DISTINCT evl.match_id), 2) AS pass_complete_per_match,
         COUNTIF(evl.pass_through_ball = TRUE) AS pass_through_ball,
@@ -44,19 +44,19 @@ normalized AS (
         poste,
         nb_match,
 
-        -- Normalisation Attaque
+        -- Normalisation Attaque (6 métriques)
         SAFE_DIVIDE(goals_per_match - MIN(goals_per_match) OVER(), MAX(goals_per_match) OVER() - MIN(goals_per_match) OVER()) AS n_goals,
-        SAFE_DIVIDE(xg_per_match - MIN(xg_per_match) OVER(), MAX(xg_per_match) OVER() - MIN(xg_per_match) OVER()) AS n_xg,
+        SAFE_DIVIDE(contre_attaques_per_match - MIN(contre_attaques_per_match) OVER(), MAX(contre_attaques_per_match) OVER() - MIN(contre_attaques_per_match) OVER()) AS n_contre_attaques,
         SAFE_DIVIDE(tirs_cadres_per_match - MIN(tirs_cadres_per_match) OVER(), MAX(tirs_cadres_per_match) OVER() - MIN(tirs_cadres_per_match) OVER()) AS n_tirs_cadres,
         SAFE_DIVIDE(taux_conversion - MIN(taux_conversion) OVER(), MAX(taux_conversion) OVER() - MIN(taux_conversion) OVER()) AS n_conversion,
-
-        -- Normalisation Milieu
         SAFE_DIVIDE(pass_goal_assist_per_match - MIN(pass_goal_assist_per_match) OVER(), MAX(pass_goal_assist_per_match) OVER() - MIN(pass_goal_assist_per_match) OVER()) AS n_pass_goal_assist,
         SAFE_DIVIDE(dribbles_per_match - MIN(dribbles_per_match) OVER(), MAX(dribbles_per_match) OVER() - MIN(dribbles_per_match) OVER()) AS n_dribbles,
+
+        -- Normalisation Milieu (2 métriques)
         SAFE_DIVIDE(pass_complete_per_match - MIN(pass_complete_per_match) OVER(), MAX(pass_complete_per_match) OVER() - MIN(pass_complete_per_match) OVER()) AS n_pass_complete,
         SAFE_DIVIDE(pass_through_ball_per_match - MIN(pass_through_ball_per_match) OVER(), MAX(pass_through_ball_per_match) OVER() - MIN(pass_through_ball_per_match) OVER()) AS n_pass_through_ball,
 
-        -- Normalisation Défense
+        -- Normalisation Défense (2 métriques)
         SAFE_DIVIDE(interceptions_per_match - MIN(interceptions_per_match) OVER(), MAX(interceptions_per_match) OVER() - MIN(interceptions_per_match) OVER()) AS n_interceptions,
         SAFE_DIVIDE(duel_win_per_match - MIN(duel_win_per_match) OVER(), MAX(duel_win_per_match) OVER() - MIN(duel_win_per_match) OVER()) AS n_duel_win
 
@@ -67,8 +67,8 @@ scores AS (
     SELECT
         *,
         ROUND(
-            (COALESCE(n_goals, 0) + COALESCE(n_xg, 0) + COALESCE(n_conversion, 0) +
-             COALESCE(n_pass_goal_assist, 0) + COALESCE(n_dribbles, 0) + COALESCE(n_tirs_cadres, 0)) / 6
+            (COALESCE(n_goals, 0) + COALESCE(n_contre_attaques, 0) + COALESCE(n_tirs_cadres, 0) +
+             COALESCE(n_conversion, 0) + COALESCE(n_pass_goal_assist, 0) + COALESCE(n_dribbles, 0)) / 6
         , 4) AS score_attaque,
 
         ROUND(
@@ -103,17 +103,17 @@ SELECT
     -- KPI Attaque
     s.goals,
     s.goals_per_match,
-    s.xg_total,
-    s.xg_per_match,
+    s.contre_attaques,
+    s.contre_attaques_per_match,
     s.tirs_cadres,
     s.tirs_cadres_per_match,
     s.taux_conversion,
-
-    -- KPI Milieu / Création
     s.pass_goal_assist,
     s.pass_goal_assist_per_match,
     s.dribbles_reussis,
     s.dribbles_per_match,
+
+    -- KPI Milieu / Création
     s.pass_complete,
     s.pass_complete_per_match,
     s.pass_through_ball,

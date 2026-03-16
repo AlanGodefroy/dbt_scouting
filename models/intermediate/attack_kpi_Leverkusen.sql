@@ -6,7 +6,7 @@ WITH sq1 AS (
         evl.match_id,
 
         COUNTIF(evl.shot_outcome = 'Goal')                                          AS nb_goals,
-        SUM(evl.shot_statsbomb_xg)                                                  AS nb_xg,
+        COUNTIF(evl.play_pattern = 'From Counter')                                  AS nb_contre_attaques,
         COUNTIF(evl.shot_outcome IN ('Goal', 'Saved', 'Saved to Post'))             AS nb_tirs_cadres,
         SAFE_DIVIDE(
             COUNTIF(evl.shot_outcome = 'Goal'),
@@ -48,7 +48,7 @@ normalized_kpis AS (
 
         -- KPIs bruts
         sq1.nb_goals,
-        sq1.nb_xg,
+        sq1.nb_contre_attaques,
         sq1.nb_tirs_cadres,
         sq1.taux_conversion,
         sq1.nb_pass_goal_assist,
@@ -63,9 +63,9 @@ normalized_kpis AS (
             MAX(sq1.nb_goals) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_goals) OVER (PARTITION BY sq1.match_id)), 0)
             AS nb_goals_norm,
 
-        COALESCE(SAFE_DIVIDE(sq1.nb_xg - MIN(sq1.nb_xg) OVER (PARTITION BY sq1.match_id),
-            MAX(sq1.nb_xg) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_xg) OVER (PARTITION BY sq1.match_id)), 0)
-            AS nb_xg_norm,
+        COALESCE(SAFE_DIVIDE(sq1.nb_contre_attaques - MIN(sq1.nb_contre_attaques) OVER (PARTITION BY sq1.match_id),
+            MAX(sq1.nb_contre_attaques) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_contre_attaques) OVER (PARTITION BY sq1.match_id)), 0)
+            AS nb_contre_attaques_norm,
 
         COALESCE(SAFE_DIVIDE(sq1.nb_tirs_cadres - MIN(sq1.nb_tirs_cadres) OVER (PARTITION BY sq1.match_id),
             MAX(sq1.nb_tirs_cadres) OVER (PARTITION BY sq1.match_id) - MIN(sq1.nb_tirs_cadres) OVER (PARTITION BY sq1.match_id)), 0)
@@ -109,12 +109,12 @@ scores AS (
     SELECT
         *,
         ROUND(0.6 * SAFE_DIVIDE(
-            nb_goals_norm + nb_xg_norm + nb_tirs_cadres_norm + taux_conversion_norm,
-            4), 4) AS score_attaque,
+            nb_goals_norm + nb_contre_attaques_norm + nb_tirs_cadres_norm + taux_conversion_norm + nb_dribbles_norm + nb_pass_goal_assist_norm,
+            6), 4) AS score_attaque,
 
         ROUND(0.3 * SAFE_DIVIDE(
-            nb_pass_goal_assist_norm + nb_dribbles_norm + nb_pass_complete_norm + nb_pass_through_ball_norm,
-            4), 4) AS score_middle,
+            nb_pass_complete_norm + nb_pass_through_ball_norm,
+            2), 4) AS score_middle,
 
         ROUND(0.1 * SAFE_DIVIDE(
             nb_interceptions_norm + nb_duel_win_norm,
@@ -140,7 +140,7 @@ SELECT
     COUNT(swf.match_id)                 AS nb_matches,
     SUM(swf.total_min)                  AS total_minutes_played,
     SUM(swf.nb_goals)                   AS nb_goals,
-    SUM(swf.nb_xg)                      AS nb_xg,
+    SUM(swf.nb_contre_attaques)         AS nb_contre_attaques,
     SUM(swf.nb_tirs_cadres)             AS nb_tirs_cadres,
     ROUND(AVG(swf.taux_conversion), 2)  AS taux_conversion_moy,
     SUM(swf.nb_pass_goal_assist)        AS nb_pass_goal_assist,
