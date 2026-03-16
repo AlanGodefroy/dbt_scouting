@@ -27,7 +27,8 @@ defense_euro AS (
     current_club_name,
 FROM {{ ref('kpi_defense_euro') }}
 )
-
+,
+grosse_table AS (
 SELECT 
 * 
 FROM middle_euro
@@ -35,3 +36,20 @@ UNION ALL
 SELECT 
 * 
 FROM defense_euro
+)
+
+SELECT 
+grosse_table.player_id,
+player,
+poste,
+score_attack,
+score_middle,
+score_defense,
+score_final,
+grosse_table.age,
+grosse_table.market_value,
+grosse_table.current_club_name,
+image_url,
+FROM grosse_table
+LEFT JOIN {{ ref('stg_Raw_data__euro2024_players_images_matched') }} AS img
+ON grosse_table.player_id = img.player_id
