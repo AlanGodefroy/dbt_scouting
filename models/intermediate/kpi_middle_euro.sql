@@ -1,4 +1,6 @@
 
+WITH euro_kpi AS (
+
 SELECT
     player_id,
     player,
@@ -31,5 +33,16 @@ SELECT
     ROUND(AVG(clearance_aerial_won), 2) AS clearance_aerial_won_per_match
 
 FROM {{ ref('Int_middle_euro') }}
-GROUP BY player, player_id, poste
+GROUP BY  player_id, player, poste)
+
+SELECT 
+e.*,
+g.age,
+g.market_value,
+g.team,
+g.current_club_name
+FROM euro_kpi AS e
+LEFT JOIN {{ ref('stg_Raw_data__euro_24_global_data_players') }} AS g
+ON e.player_id = g.player_id
+WHERE market_value <= 30000000 AND nb_match >= 3 AND age < 27
 ORDER BY score_final DESC
