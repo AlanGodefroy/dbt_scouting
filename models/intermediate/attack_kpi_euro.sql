@@ -130,4 +130,7 @@ LEFT JOIN scores AS sc
     ON s.player_id = sc.player_id
 LEFT JOIN {{ ref('stg_Raw_data__euro_24_global_data_players') }} AS gd
     ON s.player_id = gd.player_id
+WHERE s.nb_match >= 3
+  AND gd.market_value <= 30000000
+  AND DATE_DIFF(CURRENT_DATE(), gd.date_of_birth, YEAR) < 27
 ORDER BY score_final DESC
